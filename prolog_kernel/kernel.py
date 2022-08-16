@@ -22,7 +22,7 @@ For all requests (execution, shutdown, completion, inspection) the kernel receiv
 By creating a subclass of this and defining the path to it as 'kernel_implementation_path', the actual implementation code can be replaced.
 
 If no such path is defined, the path itself or the defined class is invalid, a default implementation is used instead.
-In case of SWI- and SICStus Prolog, the files 'swi_kernel.py' and 'sicstus_kernel.py' are used, which can be found in the current directory.
+In case of SWI- and SICStus Prolog, the files 'swi_kernel_implementation.py' and 'sicstus_kernel_implementation.py' are used, which can be found in the current directory.
 Otherwise, the base implementation from the file 'prolog_kernel_base_implementation.py' is loaded.
 
 The Prolog Jupyter kernel is implemented in a way that basically all functionality except the loading of the configuration can easily be overriden.
@@ -42,8 +42,8 @@ from traitlets import Unicode, Dict
 from traitlets.config.loader import PyFileConfigLoader, ConfigFileNotFound
 
 from prolog_kernel.prolog_kernel_base_implementation import PrologKernelBaseImplementation
-import prolog_kernel.swi_kernel
-import prolog_kernel.sicstus_kernel
+import prolog_kernel.swi_kernel_implementation
+import prolog_kernel.sicstus_kernel_implementation
 
 
 # Enable logging
@@ -246,10 +246,10 @@ class PrologKernel(Kernel):
             # A default implementation is used instead
             if self.implementation_id == 'swi':
                 self.logger.debug("Using the default implementation for SWI-Prolog")
-                self.kernel_implementation = prolog_kernel.swi_kernel.PrologKernelImplementation(self)
+                self.kernel_implementation = prolog_kernel.swi_kernel_implementation.PrologKernelImplementation(self)
             elif self.implementation_id == 'sicstus':
                 self.logger.debug("Using the default implementation for SICStus Prolog")
-                self.kernel_implementation = prolog_kernel.sicstus_kernel.PrologKernelImplementation(self)
+                self.kernel_implementation = prolog_kernel.sicstus_kernel_implementation.PrologKernelImplementation(self)
             else:
                 self.logger.debug("Using the base implementation")
                 self.kernel_implementation = PrologKernelBaseImplementation(self)
