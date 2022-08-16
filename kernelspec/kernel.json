@@ -1,0 +1,11 @@
+{
+  "argv": [
+      "python3",
+      "-m",
+      "prolog_kernel",
+      "-f",
+      "{connection_file}"
+  ],
+  "display_name": "Prolog",
+  "language": "prolog"
+}

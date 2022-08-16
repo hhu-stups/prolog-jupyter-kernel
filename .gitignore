@@ -1,0 +1,8 @@
+build/
+*.egg-info
+__pycache__
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+.prolog_server_log
