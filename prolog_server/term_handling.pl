@@ -62,7 +62,58 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
   term_response/1.          % term_response(JsonResponse)
 
 
-test_file_name('jupyter_tests.pl').
+test_file_base_name('jupyter_tests').
+
+
+% test_file_name(?Unit, -TestFileName)
+%
+% PL-Unit tests need to be defined in a file which is loaded.
+% Unit is the name of the test unit.
+% TestFileName is the name of the file to which test definitions are written.
+:- if(swi).
+
+% In SWI-Prolog, the following causes an error:
+% - load a file defining a test unit U
+% - run the tests
+% - change the file so that test unit U is not defined anymore
+% - load the same file again
+% - run the tests
+% Therefore, the same test file name cannot be reused for several requests.
+% However, when a test unit was loaded from a file X, a test unit with the same name cannot be loaded from file Y afterwards.
+% Thus, every test unit is written to a file of which the name contains the unit name.
+
+:- dynamic current_test_file_name/2.  % current_test_file_name(Unit, TestFileName)
+
+% Unit is bound when this predicate is called for an encountered begin_tests directive.
+% In that case, a new file name is computed.
+test_file_name(Unit, TestFileName) :-
+  nonvar(Unit),
+  !,
+  % Compute the test file name and assert it so that it can be loaded when handling a different term
+  test_file_name_(Unit, TestFileName),
+  catch(retractall(current_test_file_name(_Unit, _TestFileName)), _Exception, true),
+  assert(current_test_file_name(Unit, TestFileName)).
+test_file_name(Unit, TestFileName) :-
+  current_test_file_name(Unit, TestFileName).
+
+
+% test_file_name(+Unit, -TestFileName)
+%
+% Computes TestFileName by appending '_' and the unit name Unit to the base file name retrieved with test_file_base_name/1.
+test_file_name_(Unit, TestFileName) :-
+  test_file_base_name(TestFileBaseName),
+  atom_concat(Unit, '.pl', UnitNameWithFileExtension),
+  atom_concat('_', UnitNameWithFileExtension, UnitNameWithFileExtensionAndUnderscore),
+  atom_concat(TestFileBaseName, UnitNameWithFileExtensionAndUnderscore, TestFileName).
+
+:- else.
+% In SICStus Prolog, a file containing `plunit` test clauses defines the predicates `'unit body'/4` and `'unit test'/5`.
+% If test files with different names are loaded, these predicates are redefined and corresponding messages are output.
+% Therefore, the test file should always be called the same.
+test_file_name(_Unit, TestFileName) :-
+  test_file_base_name(TestFileBaseName),
+  atom_concat(TestFileBaseName, '.pl', TestFileName).
+:- endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,12 +158,12 @@ handle_term(Head, false, _CallRequestId, _Stack, Bindings, continue) :-
 handle_directive((:- begin_tests(_Unit)), true, _CallRequestId, _Stack, _Bindings, continue) :- !,
   handle_single_test_directive.
 handle_directive((:- begin_tests(Unit)), _IsSingleTerm, _CallRequestId, _Stack, Bindings, continue) :- !,
-  handle_begin_tests((:- begin_tests(Unit)), Bindings).
+  handle_begin_tests((:- begin_tests(Unit)), Unit, Bindings).
 % begin_tests/2
 handle_directive((:- begin_tests(_Unit, _Options)), true, _CallRequestId, _Stack, _Bindings, continue) :- !,
   handle_single_test_directive.
 handle_directive((:- begin_tests(Unit, Options)), _IsSingleTerm, _CallRequestId, _Stack, Bindings, continue) :- !,
-  handle_begin_tests((:- begin_tests(Unit, Options)), Bindings).
+  handle_begin_tests((:- begin_tests(Unit, Options)), Unit, Bindings).
 % end_tests/1
 handle_directive((:- end_tests(_Unit)), true,_CallRequestId, _Stack,  _Bindings, continue) :- !,
   handle_single_test_directive.
@@ -702,29 +753,44 @@ convert_to_atom_list(List, Bindings, AtomList) :-
 % PlUnit tests
 
 % In order to use PlUnit tests with the SICStus JSON-RPC server, the tests need to be written to a file which can be loaded.
-% When a the first begin_tests directive is encountered, a file is created and opened for writing.
+% SICStus: When a the first begin_tests directive is encountered, a file is created and opened for writing.
+% SWI: For every unit, a file is created and opened for writing.
 % The corresponding stream is asserted as test_write_stream/1 so that it can be used to write test definitions test directives to the file.
-% Each following begin_tests/end_tests directive and test/1 or test/2 clause is written to the file.
-% When all terms of a request were handled or a run_tests query is encountered, the file is loaded.
+% Each following test/1 or test/2 clause (and in case of SICStus also begin_tests/end_tests directives) is written to the file.
+% When all terms of a request were handled or a run_tests query is encountered (additionally in case of SWI: a new begin_tests directive), the file is loaded.
 
-% All tests which are to be run at the same time need to be defined by the same request.
-% Otherwise, the definition is overwritten.
-
+% SICStus: All tests which are to be run at the same time need to be defined by the same request. Otherwise, the definition is overwritten.
 
 % handle_single_test_directive
 handle_single_test_directive :-
   assert_error_response(exception, message_data(error, jupyter(single_test_directive)), '', []).
 
 
-% handle_begin_tests(+Directive, +Bindings)
-handle_begin_tests(Directive, Bindings) :-
+% handle_begin_tests(+Directive, +Unit +Bindings)
+%
+% Unit is the name of the test unit.
+:- if(swi).
+handle_begin_tests(Directive, Unit, Bindings) :-
+  % Create a new file for each test unit
+  % First load the previous test unit file if there is one
+  test_definition_end(true),
+  catch(retractall(test_definition_stream(_TestDefinitionStream)), _Exception, true),
+  begin_new_test_file(Directive, Unit, Bindings).
+:- else.
+handle_begin_tests(Directive, _Unit, Bindings) :-
   test_definition_stream(TestDefinitionStream),
   % Not the first begin_tests directive -> write to the existing file
   !,
   write_to_test_definition_stream(Directive, Bindings, TestDefinitionStream).
-handle_begin_tests(Directive, Bindings) :-
+handle_begin_tests(Directive, Unit, Bindings) :-
   % First begin_tests directive of the request or after a run_tests query -> create a new file
-  test_file_name(TestFileName),
+  begin_new_test_file(Directive, Unit, Bindings).
+:- endif.
+
+
+% begin_new_test_file(+Directive, +Unit +Bindings)
+begin_new_test_file(Directive, Unit, Bindings) :-
+  test_file_name(Unit, TestFileName),
   open(TestFileName, write, TestDefinitionStream),
   assert(test_definition_stream(TestDefinitionStream)),
   % Load the module plunit in the file
@@ -764,7 +830,7 @@ test_definition_end(LoadFile) :-
   !,
   close(TestDefinitionStream),
   retractall(test_definition_stream(_)),
-  test_file_name(TestFileName),
+  test_file_name(Unit, TestFileName),
   % When loading the file, an exception or warning might be output
   ( LoadFile==true ->
     % When loading the file, an exception or warning might be output
@@ -776,7 +842,14 @@ test_definition_end(LoadFile) :-
   ( nonvar(ErrorMessageData) ->
     assert_error_response(exception, message_data(error, ErrorMessageData), Output, [])
   ; otherwise ->
-    atom_concat(Output, '\n% Loaded the test file', OutputWithLoadMessage),
+    ( nonvar(Unit) ->
+      % In case of SWI-Prolog, the Unit is bound
+      % Since each Unit is written to and loaded from a separate file, a message should be output for each file
+      format_to_codes('\n% Defined test unit ~w', [Unit], LoadMessageCodes),
+      atom_codes(LoadMessage, LoadMessageCodes),
+      atom_concat(Output, LoadMessage, OutputWithLoadMessage)
+    ; atom_concat(Output, '\n% Loaded the test file', OutputWithLoadMessage)
+    ),
     assert_success_response(directive, [], OutputWithLoadMessage, [])
   ).
 test_definition_end(_LoadFile).

@@ -735,62 +735,82 @@ test(query_with_missing_full_stop_ending_with_comment, [true(Result = ExpectedRe
 
 
 :- if(swi).
-expected_retracted_clauses(predicate_redefinition_inside_unit_test, ['user:print_test/1'='print_test(_) :-\n        nl.\n']).
+expected_retracted_clauses(predicate_redefinition_inside_unit_test, ['user:print_test/1'=':- dynamic print_test/1.\n\nprint_test(_) :-\n    nl.\n']).
 
 expected_prolog_message_subterm(single_begin_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
 expected_prolog_message_subterm(single_end_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
+
+% expected_line_subterm(FirstOrLastLine, AtomLength, Atom)
+expected_line_subterm(first, 24, '% PL-Unit: test ... done').
+expected_line_subterm(last, 20, '% All 3 tests passed').
 :- else.
 expected_retracted_clauses(predicate_redefinition_inside_unit_test, ['user:print_test/1'='print_test(_) :-\n        nl.\n']).
 expected_prolog_message_subterm(single_begin_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
 expected_prolog_message_subterm(single_end_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
+
+% expected_line_subterm(FirstOrLastLine, AtomLength, Atom)
+expected_line_subterm(first, 15, '% PL-Unit: test').
+expected_line_subterm(last, 16, '% 3 tests passed').
 :- endif.
 
 
 :- begin_tests(plunit_tests, [setup(start_process), cleanup(release_process(true))]).
 
-:- if(sicstus).
+test(single_begin_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(single_begin_tests, ':- begin_tests(list).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
+test(single_end_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(single_end_tests, ':- end_tests(list).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
 test(load_test_definition_file, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
   % Load a test definition file
   LoadRequest = '[test].',
   ExpectedLoadResult = [type=query,bindings=json([]),output=_LoadOutput],
-  send_call_with_single_success_result(LoadRequest, 1, LoadResult),
+  send_call_with_single_success_result(LoadRequest, 3, LoadResult),
   check_equality(LoadResult, ExpectedLoadResult),
   % Run the tests
   RunTestsRequest = 'run_tests.',
   % RunTestsOutput cannot be compared as is as it contains the absolute path to the test file
-  % RunTestsOutput is something like: '% PL-Unit: test \n% .../test.pl:8:\n% \ttest a: succeeded (det) in 0.00 seconds\n% .../test.pl:11:\n% \ttest b: succeeded (det) in 0.00 seconds\n% .../test.pl:14:\n% \ttest c: succeeded (det) in 0.00 seconds\n% done\n% 3 tests passed'
+  % For SICStus, RunTestsOutput is something like: '% PL-Unit: test \n% .../test.pl:8:\n% \ttest a: succeeded (det) in 0.00 seconds\n% .../test.pl:11:\n% \ttest b: succeeded (det) in 0.00 seconds\n% .../test.pl:14:\n% \ttest c: succeeded (det) in 0.00 seconds\n% done\n% 3 tests passed'
+  % For SWI, RunTestsOutput='% PL-Unit: test ... done\n% All 3 tests passed'
   RunTestsResult = [type=query,bindings=json([]),output=RunTestsOutput],
-  ExpectedLine1Start = '% PL-Unit: test ',
-  ExpectedLastLines = '% done\n% 3 tests passed',
-  send_call_with_single_success_result(RunTestsRequest, 2, RunTestsResult),
+  expected_line_subterm(first, FirstLineSubtermLength, ExpectedFirstLineSubterm),
+  expected_line_subterm(last, LastLineSubtermLength, ExpectedLastLineSubterm),
+  send_call_with_single_success_result(RunTestsRequest, 4, RunTestsResult),
   %print(RunTestsOutput), nl, nl,
-  sub_atom(RunTestsOutput, 0, 16, _, Line1Start),
-  check_equality(Line1Start, ExpectedLine1Start),
+  sub_atom(RunTestsOutput, 0, FirstLineSubtermLength, _, FirstLineSubterm),
+  check_equality(FirstLineSubterm, ExpectedFirstLineSubterm),
   atom_length(RunTestsOutput, RunTestsOutputLength),
-  LastLinesStart is RunTestsOutputLength - 23,
-  sub_atom(RunTestsOutput, LastLinesStart, 23, 0, LastLines),
-  check_equality(LastLines, ExpectedLastLines),
+  LastLinesStart is RunTestsOutputLength - LastLineSubtermLength,
+  sub_atom(RunTestsOutput, LastLinesStart, LastLineSubtermLength, 0, LastLineSubterm),
+  check_equality(LastLineSubterm, ExpectedLastLineSubterm),
   % Defining other tests results in a redefinition message
   DefinitionRequest = ':- begin_tests(list). test(list) :- lists:is_list([]).',
   ExpectedDefinitionResult = [type=directive,bindings=json([]),output=_LoadOutput2],
-  send_call_with_single_success_result(DefinitionRequest, 3, DefinitionResult).
-:- endif.
+  send_call_with_single_success_result(DefinitionRequest, 5, DefinitionResult).
 
+:- if(swi).
 test(multiple_units, [true(RunTestsResult = ExpectedRunTestsResult)]) :-
   DefinitionRequest = ':- begin_tests(list1, [condition(true)]). test(list) :- lists:is_list([]). :- end_tests(list1). :- begin_tests(list2). test(list_fail, [fail]) :- lists:is_list(1). :- end_tests(list2).',
-  ExpectedDefinitionResult = [type=directive,bindings=json([]),output=_LoadOutput],
-  send_call_with_single_success_result(DefinitionRequest, 4, DefinitionResult),
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list1']),
+                                   '2'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list2'])]),
+  send_success_call(DefinitionRequest, 6, DefinitionResult),
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Run the tests
   RunTestsRequest = 'run_tests.',
   ExpectedRunTestsResult = [type=query,bindings=json([]),output=_Output],
-  send_call_with_single_success_result(RunTestsRequest, 5, RunTestsResult).
-
-test(single_begin_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(single_begin_tests, ':- begin_tests(list).', 6, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
-
-test(single_end_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(single_end_tests, ':- end_tests(list).', 7, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+  send_call_with_single_success_result(RunTestsRequest, 7, RunTestsResult).
+:- else.
+test(multiple_units, [true(RunTestsResult = ExpectedRunTestsResult)]) :-
+  DefinitionRequest = ':- begin_tests(list1, [condition(true)]). test(list) :- lists:is_list([]). :- end_tests(list1). :- begin_tests(list2). test(list_fail, [fail]) :- lists:is_list(1). :- end_tests(list2).',
+  ExpectedDefinitionResult = [type=directive,bindings=json([]),output=_LoadOutput],
+  send_call_with_single_success_result(DefinitionRequest, 6, DefinitionResult),
+  check_equality(DefinitionResult, ExpectedDefinitionResult),
+  % Run the tests
+  RunTestsRequest = 'run_tests.',
+  ExpectedRunTestsResult = [type=query,bindings=json([]),output=_Output],
+  send_call_with_single_success_result(RunTestsRequest, 7, RunTestsResult).
+:- endif.
 
 test(test_1_definition_outside_unit_test, [true(CallResult = ExpectedCallResult)]) :-
   % Defining a test/1 predicate outside a unit test
@@ -815,7 +835,6 @@ test(test_2_definition_outside_unit_test, [true(CallResult = ExpectedCallResult)
   ExpectedCallResult = [type=query,bindings=json([]),output='ab'],
   send_call_with_single_success_result(CallRequest, 11, CallResult).
 
-:- if(sicstus).
 test(test_definition_and_run_tests, [true(Result = ExpectedResult)]) :-
   Request = ':- begin_tests(list1, [condition(true)]).\n test(list) :-\n  lists:is_list([]).\n :- end_tests(list1).\n ?- run_tests.\n :- begin_tests(list2).\n test(list_fail, [fail]) :-\n  lists:is_list(1).\n :- end_tests(list2).\n ?- run_tests.',
   ExpectedResult = json(['1'=json([status=success,type=directive,bindings=json([]),output=_LoadOutput1]),
@@ -842,9 +861,23 @@ test(predicate_redefinition_inside_unit_test, [true(RunTestsResult = ExpectedRun
   RunTestsRequest = 'run_tests.',
   ExpectedRunTestsResult = [type=query,bindings=json([]),output=_Output],
   send_call_with_single_success_result(RunTestsRequest, 15, RunTestsResult).
+
+:- if(swi).
+test(same_unit_in_multiple_requests, [true(DefinitionResult2 = ExpectedDefinitionResult2)]) :-
+  DefinitionRequest = ':- begin_tests(list, [condition(true)]). test(list) :- lists:is_list([]). :- end_tests(list). ?- run_tests.',
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list']),
+                                   '2'=json([status=success,type=query,bindings=json([]),output=_Output])]),
+  send_success_call(DefinitionRequest, 16, DefinitionResult),
+  check_equality(DefinitionResult, ExpectedDefinitionResult),
+  % Define the same unit again in a different request
+  DefinitionRequest2 = ':- begin_tests(list, [condition(true)]). test(list_fail, [fail]) :- lists:is_list(1). :- end_tests(list). ?- run_tests.',
+  ExpectedDefinitionResult2 = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list']),
+                                   '2'=json([status=success,type=query,bindings=json([]),output=_Output2])]),
+  send_success_call(DefinitionRequest2, 17, DefinitionResult2).
 :- endif.
 
 :- end_tests(plunit_tests).
+
 
 :- if(swi).
 expected_output(use_module_directive, '').
