@@ -165,7 +165,7 @@ server_tests_message(expected_equality(Result, ExpectedResult)) --> !,
     expected_variable_bindings/2,   % expected_variable_bindings(TestName, ExpectedVariableBindings)
     expected_output/2,              % expected_output(TestName, ExpectedOutput)
     expected_retracted_clauses/2,   % expected_retracted_clauses(TestName, ExpectedOutput)
-    expected_error_info_subterm/4.  % expected_error_info_subterm(TestName, Before, Length, ErrorInfoSubterm)
+    expected_prolog_message_subterm/4.  % expected_prolog_message_subterm(TestName, Before, Length, ErrorInfoSubterm)
 
 % In some cases, the error information returned for a request cannot be compared as is because it may contain a variable or path name which is not always the same.
 % In such cases, only a subterm is compared.
@@ -173,24 +173,22 @@ server_tests_message(expected_equality(Result, ExpectedResult)) --> !,
 % error_result_message_subterms(+TestName, +Request, +Id, +ExpectedOutput, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
 error_result_message_subterms(TestName, Request, Id, ExpectedOutput, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_error_info_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo,output=Output])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,output=Output])]),
   % Send the request to get the success response containing the error result
   send_call_with_single_error_result(Request, Id, Error),
   % Compare the output
   check_equality(Output, ExpectedOutput),
-%  print(ErrorInfo), nl,
   % Get the subterm of the error info which is to be compared with the expected one
   sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
 % error_result_message_subterms(+TestName, +Request, +Id, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
 error_result_message_subterms(TestName, Request, Id, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_error_info_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo])]),
   % Send the request to get the success response containing the error result
   send_call_with_single_error_result(Request, Id, Error),
-%  print(ErrorInfo), nl,
   % Get the subterm of the error info which is to be compared with the expected one
   sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
@@ -198,11 +196,10 @@ error_result_message_subterms(TestName, Request, Id, ErrorInfoSubterm, ExpectedE
 % error_response_message_subterms(+TestName, +Request, +Id, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
 error_response_message_subterms(TestName, Request, Id, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_error_info_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo])]),
   % Send the request to get the success response containing the error result
   send_failure_request(Request, Id, Error),
-%  print(ErrorInfo), nl,
   % Get the subterm of the error info which is to be compared with the expected one
   sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
@@ -254,11 +251,11 @@ test(version) :-
 :- begin_tests(invalid_request, [setup(start_process), cleanup(release_process(true))]).
 
 test(invalid_params, [true(Reply = ExpectedReply)]) :-
-  ExpectedReply = json([jsonrpc='2.0',id=1,error=json([code= -32602,message='Invalid method parameter(s).',data=json([error_info=json([jsonrpc='2.0',id=1,method=call,params=json([cod=''])])])])]),
+  ExpectedReply = json([jsonrpc='2.0',id=1,error=json([code= -32602,message='Invalid method parameter(s).',data=json([prolog_message=''])])]),
   send_json_request('call', json([cod='']), 1, Reply).
 
 test(invalid_method, [true(Reply = ExpectedReply)]) :-
-  ExpectedReply = json([jsonrpc='2.0',id=2,error=json([code= -32601,message='The method does not exist / is not available.',data=json([error_info=json([jsonrpc='2.0',id=2,method=invalid_method,params=json([])])])])]),
+  ExpectedReply = json([jsonrpc='2.0',id=2,error=json([code= -32601,message='The method does not exist / is not available.',data=json([prolog_message=''])])]),
   send_json_request('invalid_method', json([]), 2, Reply).
 
 :- end_tests(invalid_request).
@@ -273,7 +270,7 @@ test(member_success, [true(Result = ExpectedResult)]) :-
 
 test(member_failure, [true(Error = ExpectedError)]) :-
   Request = 'member(4, [1,2,3]).',
-  ExpectedError = json([code= -4711,message='Failure',data=json([error_info=''])]),
+  ExpectedError = json([code= -4711,message='Failure',data=json([prolog_message=''])]),
   send_call_with_single_error_result(Request, 2, Error).
 
 test(member_with_output, [true(Result = ExpectedResult)]) :-
@@ -293,7 +290,7 @@ test(is_list_success, [true(Result = ExpectedResult)]) :-
 
 test(is_list_failure, [true(Error = ExpectedError)]) :-
   Request = 'lists:is_list(atom).',
-  ExpectedError = json([code= -4711,message='Failure',data=json([error_info=''])]),
+  ExpectedError = json([code= -4711,message='Failure',data=json([prolog_message=''])]),
   send_call_with_single_error_result(Request, 6, Error).
 
 test(format_output, [true(Result = ExpectedResult)]) :-
@@ -383,18 +380,18 @@ test(compound_list, [true(VariableAtomStart = ExpectedVariableAtomStart)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(non_existent_predicate, 0, 58, 'ERROR: call/1: Unknown procedure: non_existent_predicate/0').
-expected_error_info_subterm(instantiation_error, 0, 56, 'ERROR: is/2: Arguments are not sufficiently instantiated').
-expected_error_info_subterm(type_error, 0, 48, 'ERROR: is/2: Arithmetic: `y/0\' is not a function').
-expected_error_info_subterm(syntax_error, 0, 90, 'ERROR: Syntax error: Illegal start of term\nERROR: faulty([1,\nERROR: ** here **\nERROR: 2). ').
-expected_error_info_subterm(syntax_error_in_second_term, 0, 90, 'ERROR: Syntax error: Illegal start of term\nERROR: faulty([1,\nERROR: ** here **\nERROR: 2). ').
+expected_prolog_message_subterm(non_existent_predicate, 0, 58, 'ERROR: call/1: Unknown procedure: non_existent_predicate/0').
+expected_prolog_message_subterm(instantiation_error, 0, 56, 'ERROR: is/2: Arguments are not sufficiently instantiated').
+expected_prolog_message_subterm(type_error, 0, 48, 'ERROR: is/2: Arithmetic: `y/0\' is not a function').
+expected_prolog_message_subterm(syntax_error, 0, 90, 'ERROR: Syntax error: Illegal start of term\nERROR: faulty([1,\nERROR: ** here **\nERROR: 2). ').
+expected_prolog_message_subterm(syntax_error_in_second_term, 0, 90, 'ERROR: Syntax error: Illegal start of term\nERROR: faulty([1,\nERROR: ** here **\nERROR: 2). ').
 :- else.
-expected_error_info_subterm(non_existent_predicate, 0, 144, '! Existence error in user:non_existent_predicate/0\n! procedure user:non_existent_predicate/0 does not exist\n! goal:  user:non_existent_predicate').
-expected_error_info_subterm(instantiation_error, 0, 55, '! Instantiation error in argument 2 of (is)/2\n! goal:  ').
+expected_prolog_message_subterm(non_existent_predicate, 0, 144, '! Existence error in user:non_existent_predicate/0\n! procedure user:non_existent_predicate/0 does not exist\n! goal:  user:non_existent_predicate').
+expected_prolog_message_subterm(instantiation_error, 0, 55, '! Instantiation error in argument 2 of (is)/2\n! goal:  ').
                                                       % '! Instantiation error in argument 2 of (is)/2\n! goal:  _24225 is _24231+2'
-expected_error_info_subterm(type_error, 0, 90, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found y/0\n! goal:  3 is y+2').
-expected_error_info_subterm(syntax_error, 0, 107, '! Syntax error in read_term/3\n! , | or ] expected in list\n! in line 1\n! faulty ( [ 1 , 2 \n! <<here>>\n! ) . ').
-expected_error_info_subterm(syntax_error_in_second_term, 0, 107, '! Syntax error in read_term/3\n! , | or ] expected in list\n! in line 1\n! faulty ( [ 1 , 2 \n! <<here>>\n! ) . ').
+expected_prolog_message_subterm(type_error, 0, 90, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found y/0\n! goal:  3 is y+2').
+expected_prolog_message_subterm(syntax_error, 0, 107, '! Syntax error in read_term/3\n! , | or ] expected in list\n! in line 1\n! faulty ( [ 1 , 2 \n! <<here>>\n! ) . ').
+expected_prolog_message_subterm(syntax_error_in_second_term, 0, 107, '! Syntax error in read_term/3\n! , | or ] expected in list\n! in line 1\n! faulty ( [ 1 , 2 \n! <<here>>\n! ) . ').
 :- endif.
 
 
@@ -419,14 +416,14 @@ test(syntax_error_in_second_term, [true(ErrorInfoSubterm = ExpectedErrorInfoSubt
 
 
 :- if(swi).
-expected_error_info_subterm(exception_in_retry, 0, 48, 'ERROR: is/2: Arithmetic: `a/0\' is not a function').
-expected_error_info_subterm(retry_no_single_goal, 0, 58, 'ERROR: jupyter:retry/0 needs to be the only goal in a term').
-expected_error_info_subterm(cut_no_single_goal, 0, 56, 'ERROR: jupyter:cut/0 needs to be the only goal in a term').
+expected_prolog_message_subterm(exception_in_retry, 0, 48, 'ERROR: is/2: Arithmetic: `a/0\' is not a function').
+expected_prolog_message_subterm(retry_no_single_goal, 0, 58, 'ERROR: jupyter:retry/0 needs to be the only goal in a term').
+expected_prolog_message_subterm(cut_no_single_goal, 0, 56, 'ERROR: jupyter:cut/0 needs to be the only goal in a term').
 :- else.
-expected_error_info_subterm(exception_in_retry, 0, 82, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  ').
+expected_prolog_message_subterm(exception_in_retry, 0, 82, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  ').
                                                      % '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  _46965 is a+1'
-expected_error_info_subterm(retry_no_single_goal, 0, 53, '! jupyter:retry/0 needs to be the only goal in a term').
-expected_error_info_subterm(cut_no_single_goal, 0, 51, '! jupyter:cut/0 needs to be the only goal in a term').
+expected_prolog_message_subterm(retry_no_single_goal, 0, 53, '! jupyter:retry/0 needs to be the only goal in a term').
+expected_prolog_message_subterm(cut_no_single_goal, 0, 51, '! jupyter:cut/0 needs to be the only goal in a term').
 :- endif.
 
 
@@ -436,12 +433,12 @@ expected_error_info_subterm(cut_no_single_goal, 0, 51, '! jupyter:cut/0 needs to
 
 test(retry_no_active_call, [true(Error = ExpectedError)]) :-
   Request = 'retry.',
-  ExpectedError = json([code= -4713,message='No active call',data=json([error_info=''])]),
+  ExpectedError = json([code= -4713,message='No active call',data=json([prolog_message=''])]),
   send_call_with_single_error_result(Request, 1, Error).
 
 test(cut_no_active_call, [true(Error = ExpectedError)]) :-
   Request = 'jupyter:cut.',
-  ExpectedError = json([code= -4713,message='No active call',data=json([error_info=''])]),
+  ExpectedError = json([code= -4713,message='No active call',data=json([prolog_message=''])]),
   send_call_with_single_error_result(Request, 2, Error).
 
 test(member_retry, [true(RetryResult = ExpectedRetryResult)]) :-
@@ -488,7 +485,7 @@ test(member_retry_failure, [true(NumberRetryResult = ExpectedNumberRetryResult)]
   check_equality(AtomMemberResult, ExpectedAtomMemberResult),
   % Retry 'member(Member, [a]).' -> failure because there are no other solutions
   AtomRetryRequest = 'retry.',
-  ExpectedAtomRetryError = json([code= -4711,message='Failure',data=json([error_info='',output='% Retrying goal: member(Member,[a])\n'])]),
+  ExpectedAtomRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: member(Member,[a])\n'])]),
   send_call_with_single_error_result(AtomRetryRequest, 12, AtomRetryError),
   check_equality(AtomRetryError, ExpectedAtomRetryError),
   % Retry previous goal 'member(Member, [1,2,3]).'
@@ -503,7 +500,7 @@ test(retry_failure_with_output, [true(RetryError = ExpectedRetryError)]) :-
   check_equality(MemberResult, ExpectedMemberResult),
   % Before failing, retrying the goal produces output
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4711,message='Failure',data=json([error_info='',output='% Retrying goal: member(X,[1,a]),print(X),number(X)\na'])]),
+  ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: member(X,[1,a]),print(X),number(X)\na'])]),
   send_call_with_single_error_result(RetryRequest, 15, RetryError).
 
 test(exception_in_retry, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
@@ -546,13 +543,13 @@ test(cut_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(load_test_file, 0, 45, 'ERROR: call/1: Unknown procedure: test_pred/1').
-expected_error_info_subterm(load_module, 0, 90, 'ERROR: Syntax error: Operator expected\nERROR: X\nERROR: ** here **\nERROR:  #<= 10, X #> 3. ').
+expected_prolog_message_subterm(load_test_file, 0, 45, 'ERROR: call/1: Unknown procedure: test_pred/1').
+expected_prolog_message_subterm(load_module, 0, 90, 'ERROR: Syntax error: Operator expected\nERROR: X\nERROR: ** here **\nERROR:  #<= 10, X #> 3. ').
         % 'ERROR: Stream <stream>(0x561666b1db10):1:2 Syntax error: Operator expected').
 :- else.
-expected_error_info_subterm(load_test_file, 0, 91, '! Existence error in user:test_pred/1\n! procedure user:test_pred/1 does not exist\n! goal:  ').
+expected_prolog_message_subterm(load_test_file, 0, 91, '! Existence error in user:test_pred/1\n! procedure user:test_pred/1 does not exist\n! goal:  ').
                                                  % '! Existence error in user:test_pred/1\n! procedure user:test_pred/1 does not exist\n! goal:  user:test_pred(_13169)'
-expected_error_info_subterm(load_module, 0, 115, '! Syntax error in read_term/3\n! operator expected after expression\n! in line 1\n! X \n! <<here>>\n! #<= 10 , X #> 3 . ').
+expected_prolog_message_subterm(load_module, 0, 115, '! Syntax error in read_term/3\n! operator expected after expression\n! in line 1\n! X \n! <<here>>\n! #<= 10 , X #> 3 . ').
 :- endif.
 
 
@@ -593,14 +590,14 @@ test(load_module, [true(ClpfdResult = ExpectedClpfdResult)]) :-
 expected_retracted_clauses(predicate_redefinition, ['user:p/1'=':- dynamic p/1.\n\np(1).\np(2).\n']).
 expected_retracted_clauses(static_predicate_definition_error_and_redefinition, ['user:p/0'=':- dynamic p/0.\n\np.\n']).
 
-expected_error_info_subterm(app_predicate_definition, 0, 39, 'ERROR: call/1: Unknown procedure: app/3').
-expected_error_info_subterm(static_predicate_definition_error_and_redefinition, 0, 94, 'ERROR: assertz/1: No permission to modify static procedure `lists:append/3\'\nERROR: Defined at ').
+expected_prolog_message_subterm(app_predicate_definition, 0, 39, 'ERROR: call/1: Unknown procedure: app/3').
+expected_prolog_message_subterm(static_predicate_definition_error_and_redefinition, 0, 94, 'ERROR: assertz/1: No permission to modify static procedure `lists:append/3\'\nERROR: Defined at ').
 :- else.
 expected_retracted_clauses(predicate_redefinition, ['user:p/1'='p(1).\np(2).\n']).
 expected_retracted_clauses(static_predicate_definition_error_and_redefinition, ['user:p/0'='p.\n']).
 
-expected_error_info_subterm(app_predicate_definition, 0, 110, '! Existence error in user:app/3\n! procedure user:app/3 does not exist\n! goal:  user:app([1,2],[3,4],[1,2,3,4])').
-expected_error_info_subterm(static_predicate_definition_error_and_redefinition, 0, 99, '! Permission error: cannot assert static user:append/3\n! goal:  assertz(user:append([1],[2],[1,2]))').
+expected_prolog_message_subterm(app_predicate_definition, 0, 110, '! Existence error in user:app/3\n! procedure user:app/3 does not exist\n! goal:  user:app([1,2],[3,4],[1,2,3,4])').
+expected_prolog_message_subterm(static_predicate_definition_error_and_redefinition, 0, 99, '! Permission error: cannot assert static user:append/3\n! goal:  assertz(user:append([1],[2],[1,2]))').
 :- endif.
 
 
@@ -637,7 +634,7 @@ test(predicate_redefinition, [true(RetryError = ExpectedRetryError)]) :-
   send_call_with_single_success_result(CallRequest, 5, CallResult),
   check_equality(CallResult, ExpectedCallResult),
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4711,message='Failure',data=json([error_info='',output='% Retrying goal: p(X)\n'])]),
+  ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: p(X)\n'])]),
   send_call_with_single_error_result(RetryRequest, 6, RetryError).
 
 test(static_predicate_definition_error_and_redefinition, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
@@ -648,10 +645,10 @@ test(static_predicate_definition_error_and_redefinition, [true(ErrorInfoSubterm 
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Try to redefine append/3 and p/0 -> output and error message
   Request = 'p. append([1], [2], [1,2]).',
-  expected_error_info_subterm(static_predicate_definition_error_and_redefinition, Before, Length, ExpectedErrorInfoSubterm),
+  expected_prolog_message_subterm(static_predicate_definition_error_and_redefinition, Before, Length, ExpectedErrorInfoSubterm),
   expected_retracted_clauses(static_predicate_definition_error_and_redefinition, ExpectedRetractedClauses),
   Error = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:p/0\n',retracted_clauses=json(RetractedClauses)]),
-                '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([error_info=ErrorInfo,retracted_clauses=json([])])])])]),
+                '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,retracted_clauses=json([])])])])]),
   send_success_call(Request, 8, Error),
   check_equality(RetractedClauses, ExpectedRetractedClauses),
   % Get the subterm of the error info which is to be compared with the expected one
@@ -702,10 +699,10 @@ test(dcg_definition, [true(RedefinitionResult = ExpectedRedefinitionResult)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(syntax_error_and_missing_full_stop, 0, 92, 'ERROR: Syntax error: Operator expected\nERROR: member(1\nERROR: ** here **\nERROR:  [1,2,3]) . ').
+expected_prolog_message_subterm(syntax_error_and_missing_full_stop, 0, 92, 'ERROR: Syntax error: Operator expected\nERROR: member(1\nERROR: ** here **\nERROR:  [1,2,3]) . ').
                                % 'ERROR: Stream <stream>(0x5566da6e48b0):1:17 Syntax error: Unexpected end of file'
 :- else.
-expected_error_info_subterm(syntax_error_and_missing_full_stop, 0, 116, '! Syntax error in read_term/3\n! , or ) expected in arguments\n! in line 1\n! member ( 1 \n! <<here>>\n! [ 1 , 2 , 3 ] ) ').
+expected_prolog_message_subterm(syntax_error_and_missing_full_stop, 0, 116, '! Syntax error in read_term/3\n! , or ) expected in arguments\n! in line 1\n! member ( 1 \n! <<here>>\n! [ 1 , 2 , 3 ] ) ').
 :- endif.
 
 
@@ -740,12 +737,12 @@ test(query_with_missing_full_stop_ending_with_comment, [true(Result = ExpectedRe
 :- if(swi).
 expected_retracted_clauses(predicate_redefinition_inside_unit_test, ['user:print_test/1'='print_test(_) :-\n        nl.\n']).
 
-expected_error_info_subterm(single_begin_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
-expected_error_info_subterm(single_end_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
+expected_prolog_message_subterm(single_begin_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
+expected_prolog_message_subterm(single_end_tests, 0, 74, 'ERROR: The definition of a unit test cannot be split across multiple cells').
 :- else.
 expected_retracted_clauses(predicate_redefinition_inside_unit_test, ['user:print_test/1'='print_test(_) :-\n        nl.\n']).
-expected_error_info_subterm(single_begin_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
-expected_error_info_subterm(single_end_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
+expected_prolog_message_subterm(single_begin_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
+expected_prolog_message_subterm(single_end_tests, 0, 69, '! The definition of a unit test cannot be split across multiple cells').
 :- endif.
 
 
@@ -851,14 +848,16 @@ test(predicate_redefinition_inside_unit_test, [true(RunTestsResult = ExpectedRun
 
 :- if(swi).
 expected_output(use_module_directive, '').
-expected_output(directive_failure, 'ERROR: Goal (directive) failed: member(4,[1,2,3])').
-expected_output(directive_failure_with_output, 'test\nERROR: Goal (directive) failed: print(test),fail').
-expected_output(multiple_directives_failure, 'ERROR: Goal (directive) failed: append(1,2,Res),print(Res)').
+
+expected_prolog_message_subterm(directive_failure, 0, 51, 'Warning: Goal (directive) failed: member(4,[1,2,3])').
+expected_prolog_message_subterm(directive_failure_with_output, 0, 50, 'Warning: Goal (directive) failed: print(test),fail').
+expected_prolog_message_subterm(multiple_directives_failure, 0, 60, 'Warning: Goal (directive) failed: append(1,2,Res),print(Res)').
 :- else.
 expected_output(use_module_directive, '% module lists imported into user').
-expected_output(directive_failure, '* member(4,[1,2,3]) - goal failed').
-expected_output(directive_failure_with_output, 'test\n* print(test),fail - goal failed').
-expected_output(multiple_directives_failure, '* append(1,2,Res),print(Res) - goal failed').
+
+expected_prolog_message_subterm(directive_failure, 0, 33, '* member(4,[1,2,3]) - goal failed').
+expected_prolog_message_subterm(directive_failure_with_output, 0, 32, '* print(test),fail - goal failed').
+expected_prolog_message_subterm(multiple_directives_failure, 0, 42, '* append(1,2,Res),print(Res) - goal failed').
 :- endif.
 
 
@@ -877,20 +876,22 @@ test(directive_with_output, [true(RetryError = ExpectedRetryError)]) :-
   check_equality(Result, ExpectedResult),
   % A retry is not possible for directives
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4713,message='No active call',data=json([error_info=''])]),
+  ExpectedRetryError = json([code= -4713,message='No active call',data=json([prolog_message=''])]),
   send_call_with_single_error_result(RetryRequest, 3, RetryError).
 
-test(directive_failure, [true(Error = ExpectedError)]) :-
+test(directive_failure, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
   Request = ':- member(4, [1,2,3]).',
-  expected_output(directive_failure, ExpectedOutput),
-  ExpectedError = json([code= -4711,message='Failure',data=json([error_info='',output=ExpectedOutput])]),
-  send_call_with_single_error_result(Request, 4, Error).
+  expected_prolog_message_subterm(directive_failure, Before, Length, ExpectedErrorInfoSubterm),
+  Error = json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo])]),
+  send_call_with_single_error_result(Request, 4, Error),
+  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
-test(directive_failure_with_output, [true(Error = ExpectedError)]) :-
+test(directive_failure_with_output, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
   Request = ':- print(test), fail.',
-  expected_output(directive_failure_with_output, ExpectedOutput),
-  ExpectedError = json([code= -4711,message='Failure',data=json([error_info='',output=ExpectedOutput])]),
-  send_call_with_single_error_result(Request, 5, Error).
+  expected_prolog_message_subterm(directive_failure_with_output, Before, Length, ExpectedErrorInfoSubterm),
+  Error = json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo,output='test'])]),
+  send_call_with_single_error_result(Request, 5, Error),
+  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
 test(multiple_directives, [true(Result = ExpectedResult)]) :-
   Request = ':- member(M, [1,2,3]), write(M). :- member(M, [a,b,c]), write(M).',
@@ -898,12 +899,13 @@ test(multiple_directives, [true(Result = ExpectedResult)]) :-
                          '2'=json([status=success,type=directive,bindings=json([]),output=a])]),
   send_success_call(Request, 6, Result).
 
-test(multiple_directives_failure, [true(Result = ExpectedResult)]) :-
+test(multiple_directives_failure, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
   Request = ':- append([1], [2], Res), print(Res). :- append(1, 2, Res), print(Res).',
-  expected_output(multiple_directives_failure, ExpectedOutput),
-  ExpectedResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='[1,2]']),
-                         '2'=json([status=error,error=json([code= -4711,message='Failure',data=json([error_info='',output=ExpectedOutput])])])]),
-  send_success_call(Request, 7, Result).
+  expected_prolog_message_subterm(multiple_directives_failure, Before, Length, ExpectedErrorInfoSubterm),
+  Result = json(['1'=json([status=success,type=directive,bindings=json([]),output='[1,2]']),
+                 '2'=json([status=error,error=json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo])])])]),
+  send_success_call(Request, 7, Result),
+  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
 
 test(halt_directive, [true(Result = ExpectedResult)]) :-
   Request = ':- print(1). :- halt. :- print(2)',
@@ -920,7 +922,7 @@ test(retry_and_cut_directives_for_directive, [true(Result = ExpectedResult)]) :-
                          '2'=json([status=success,type=directive,bindings=json([]),output='']),
                          '3'=json([status=success,type=query,bindings=json(['X'='2']),output='% Retrying goal: member(X,[1,2,3])\n']),
                          '4'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% There is no previous active goal']),
-                         '5'=json([status=error,error=json([code= -4713,message='No active call',data=json([error_info=''])])])]),
+                         '5'=json([status=error,error=json([code= -4713,message='No active call',data=json([prolog_message=''])])])]),
   send_success_call(Request, 9, Result).
 
 test(retry_and_cut_directives, [true(Result = ExpectedResult)]) :-
@@ -958,18 +960,18 @@ test(multiple_terms_with_comment_preceding_terminating_full_stop, [true(Result =
 expected_output(exception_in_trace, '   Call: (22) 3 is 1+x\n   Exception: (22) 3 is 1+x').
 expected_output(jupyter_trace, '   Call: (26) app([1], [2], [1, 2])\n   Call: (27) app([], [2], [2])\n   Exit: (27) app([], [2], [2])\n   Exit: (26) app([1], [2], [1, 2])\n   Call: (26) print(done)\ndone   Exit: (26) print(done)').
 
-expected_error_info_subterm(trace_0, 0, 99, 'ERROR: trace/0 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
-expected_error_info_subterm(leash_1, 0, 119, 'ERROR: The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
-expected_error_info_subterm(exception_in_trace, 0, 48, 'ERROR: is/2: Arithmetic: `x/0\' is not a function').
-expected_error_info_subterm(trace_1, 0, 99, 'ERROR: trace/1 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
-expected_error_info_subterm(trace_2, 0, 99, 'ERROR: trace/2 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
+expected_prolog_message_subterm(trace_0, 0, 99, 'ERROR: trace/0 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
+expected_prolog_message_subterm(leash_1, 0, 119, 'ERROR: The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
+expected_prolog_message_subterm(exception_in_trace, 0, 48, 'ERROR: is/2: Arithmetic: `x/0\' is not a function').
+expected_prolog_message_subterm(trace_1, 0, 99, 'ERROR: trace/1 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
+expected_prolog_message_subterm(trace_2, 0, 99, 'ERROR: trace/2 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
 :- else.
 expected_output(exception_in_trace, '        1      1 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n        1      1 Exception: 3 is 1+x').
 expected_output(jupyter_trace, '        3      1 Call: app([1],[2],[1,2])\n        4      2 Call: app([],[2],[2])\n        4      2 Exit: app([],[2],[2])\n        3      1 Exit: app([1],[2],[1,2])\n        5      1 Call: print(done)\ndone\n        5      1 Exit: print(done)').
 
-expected_error_info_subterm(trace_0, 0, 89, '! trace/0 cannot be used in a Jupyter application\n! However, there is juypter:trace(Goal)').
-expected_error_info_subterm(leash_1, 0, 114, '! The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
-expected_error_info_subterm(exception_in_trace, 0, 90, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x').
+expected_prolog_message_subterm(trace_0, 0, 89, '! trace/0 cannot be used in a Jupyter application\n! However, there is juypter:trace(Goal)').
+expected_prolog_message_subterm(leash_1, 0, 114, '! The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
+expected_prolog_message_subterm(exception_in_trace, 0, 90, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x').
 :- endif.
 
 
@@ -1014,7 +1016,7 @@ test(jupyter_trace, [true(RetryError = ExpectedRetryError)]) :-
   check_equality(TraceResult, ExpectedTraceResult),
   % jupyter:trace/1 cannot be retried
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4711,message='Failure',data=json([error_info='',output='% Retrying goal: jupyter:trace((app([1],[2],[1,2]),print(done)))\n'])]),
+  ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: jupyter:trace((app([1],[2],[1,2]),print(done)))\n'])]),
   send_call_with_single_error_result(RetryRequest, 7, RetryError),
   check_equality(RetryError, ExpectedRetryError).
 
@@ -1043,7 +1045,7 @@ test(spypoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
   ExpectedExceptionOutput = '   Call: (58) 3 is 1+x\n   Exception: (58) 3 is 1+x\n   Exception: (57) jupyter:trace(3 is 1+x)',
   ExpectedErrorInfo = 'ERROR: is/2: Arithmetic: `x/0\' is not a function',
-  Error = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo, output=ExceptionOutput])]),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 12, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(ErrorInfo, ExpectedErrorInfo),
@@ -1062,7 +1064,7 @@ test(jupyter_trace, [true(DebuggingResult = ExpectedDebuggingResult)]) :-
   check_equality(TraceResult, ExpectedTraceResult),
   % jupyter:trace/1 cannot be retried
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4711,message='Failure',data=json([error_info='',output='% Retrying goal: jupyter:trace((app([1],[2],[1,2]),print(done)))\n'])]),
+  ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: jupyter:trace((app([1],[2],[1,2]),print(done)))\n'])]),
   send_call_with_single_error_result(RetryRequest, 5, RetryError),
   check_equality(RetryError, ExpectedRetryError),
   % debug mode is switched off because there is no breakpoint
@@ -1095,12 +1097,12 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
   ExpectedExceptionOutput = '     5417     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5417     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5408     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5407     20 Exception: call(jupyter:trace(3 is 1+x))',
   ExpectedErrorInfo = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
-  Error = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo, output=ExceptionOutput])]),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(ErrorInfo, ExpectedErrorInfo),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10370     22 Call: ^1 [1]\n *  10371     23 Call: ^1 []\n *  10371     23 Exit: ^1 []\n *  10370     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10395     22 Call: ^1 [1]\n *  10396     23 Call: ^1 []\n *  10396     23 Exit: ^1 []\n *  10395     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 
@@ -1114,7 +1116,7 @@ expected_output(no_stored_variable_bindings, 'No defined toplevel variables').
 expected_output(uninstantiated_value, 'No defined toplevel variables').
 expected_output(reuse_stored_values, '$Y =        2\n$X =        1\n$Z =        3').
 
-expected_error_info_subterm(variable_value_not_stored, 0, 43, 'ERROR: $X was not bound by a previous query').
+expected_prolog_message_subterm(variable_value_not_stored, 0, 43, 'ERROR: $X was not bound by a previous query').
 :- else.
 expected_variable_bindings(reuse_stored_values, ['X'='1','Z'='3','Y'='2']).
 
@@ -1122,7 +1124,7 @@ expected_output(no_stored_variable_bindings, 'No previous variable bindings').
 expected_output(uninstantiated_value, 'No previous variable bindings').
 expected_output(reuse_stored_values, '$X =        1\n$Y =        2\n$Z =        3').
 
-expected_error_info_subterm(variable_value_not_stored, 0, 38, '! $X was not bound by a previous query').
+expected_prolog_message_subterm(variable_value_not_stored, 0, 38, '! $X was not bound by a previous query').
 :- endif.
 
 
@@ -1185,17 +1187,17 @@ test(non_ground_value, [true(OutputStart = ExpectedAtomStart)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(print_table_1_no_single_goal, 0, 64, 'ERROR: jupyter:print_table/1 needs to be the only goal in a term').
-expected_error_info_subterm(print_table_2_with_unbound_variable_name, 0, 114, 'ERROR: The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
-expected_error_info_subterm(print_table_2_different_length_values_lists_and_names, 0, 114, 'ERROR: The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
-expected_error_info_subterm(print_table_2_different_length_values_lists, 0, 53, 'ERROR: The values lists need to be of the same length').
-expected_error_info_subterm(print_table_2_no_single_goal, 0, 64, 'ERROR: jupyter:print_table/2 needs to be the only goal in a term').
+expected_prolog_message_subterm(print_table_1_no_single_goal, 0, 64, 'ERROR: jupyter:print_table/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(print_table_2_with_unbound_variable_name, 0, 114, 'ERROR: The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
+expected_prolog_message_subterm(print_table_2_different_length_values_lists_and_names, 0, 114, 'ERROR: The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
+expected_prolog_message_subterm(print_table_2_different_length_values_lists, 0, 53, 'ERROR: The values lists need to be of the same length').
+expected_prolog_message_subterm(print_table_2_no_single_goal, 0, 64, 'ERROR: jupyter:print_table/2 needs to be the only goal in a term').
 :- else.
-expected_error_info_subterm(print_table_1_no_single_goal, 0, 59, '! jupyter:print_table/1 needs to be the only goal in a term').
-expected_error_info_subterm(print_table_2_with_unbound_variable_name, 0, 109, '! The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
-expected_error_info_subterm(print_table_2_different_length_values_lists_and_names, 0, 109, '! The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
-expected_error_info_subterm(print_table_2_different_length_values_lists, 0, 48, '! The values lists need to be of the same length').
-expected_error_info_subterm(print_table_2_no_single_goal, 0, 59, '! jupyter:print_table/2 needs to be the only goal in a term').
+expected_prolog_message_subterm(print_table_1_no_single_goal, 0, 59, '! jupyter:print_table/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(print_table_2_with_unbound_variable_name, 0, 109, '! The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
+expected_prolog_message_subterm(print_table_2_different_length_values_lists_and_names, 0, 109, '! The list of names needs to be empty or of the same length as the values lists and contain ground terms only').
+expected_prolog_message_subterm(print_table_2_different_length_values_lists, 0, 48, '! The values lists need to be of the same length').
+expected_prolog_message_subterm(print_table_2_no_single_goal, 0, 59, '! jupyter:print_table/2 needs to be the only goal in a term').
 :- endif.
 
 
@@ -1230,7 +1232,7 @@ test(print_table_1_member_and_retry, [true(RetryError = ExpectedRetryError)]) :-
   check_equality(MemberResult, MemberExpectedResult),
   % retry
   RetryRequest = 'retry.',
-  ExpectedRetryError = json([code= -4713,message='No active call',data=json([error_info=''])]),
+  ExpectedRetryError = json([code= -4713,message='No active call',data=json([prolog_message=''])]),
   send_call_with_single_error_result(RetryRequest, 6, RetryError).
 
 test(print_table_1_without_result, [true(Result = ExpectedResult)]) :-
@@ -1304,7 +1306,7 @@ expected_output(previous_query_time_sleep, '% module system imported into user')
 
 test(previous_query_time_no_previous_query, [true(Error = ExpectedError)]) :-
   Request = 'jupyter:previous_query_time(Goal, Time).',
-  ExpectedError = json([code= -4711,message='Failure',data=json([error_info='',output='* There is no previous query'])]),
+  ExpectedError = json([code= -4711,message='Failure',data=json([prolog_message='',output='* There is no previous query'])]),
   send_call_with_single_error_result(Request, 1, Error).
 
 test(previous_query_time_member, [true(LastQueryTimeResult = ExpectedLastQueryTimeResult)]) :-
@@ -1424,8 +1426,8 @@ test(truth_value, [true(Result = ExpectedResult)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(print_sld_tree_no_single_goal, 0, 67, 'ERROR: jupyter:print_sld_tree/1 needs to be the only goal in a term').
-expected_error_info_subterm(sld_tree_exception, 0, 48, 'ERROR: is/2: Arithmetic: `a/0\' is not a function').
+expected_prolog_message_subterm(print_sld_tree_no_single_goal, 0, 67, 'ERROR: jupyter:print_sld_tree/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(sld_tree_exception, 0, 48, 'ERROR: is/2: Arithmetic: `a/0\' is not a function').
 
 expected_output(sld_tree_exception, '1').
 
@@ -1434,16 +1436,16 @@ expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n   
 expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "1" [label="print(failure_test)"]\n    "2" [label="lists:append([1],[2],[3])"]\n}').
 expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "1" [label="member_square([1,a,3])"]\n    "2" [label="lists:member(A,[1,a,3])"]\n    "3" [label="B is 1*1"]\n    "4" [label="print(1)"]\n    "5" [label="fail"]\n    "6" [label="B is a*a"]\n    "1" -> "2"\n    "1" -> "3"\n    "1" -> "4"\n    "1" -> "5"\n    "1" -> "6"\n}').
 :- else.
-expected_error_info_subterm(print_sld_tree_no_single_goal, 0, 62, '! jupyter:print_sld_tree/1 needs to be the only goal in a term').
-expected_error_info_subterm(sld_tree_exception, 0, 82, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  ').
+expected_prolog_message_subterm(print_sld_tree_no_single_goal, 0, 62, '! jupyter:print_sld_tree/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(sld_tree_exception, 0, 82, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  ').
 %                                                      '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  _702439 is a*a'
 
 expected_output(sld_tree_exception, '1\n% The debugger is switched off').
 
 expected_print_sld_tree(sld_tree_with_variable_bindings, 'digraph {\n    "4" [label="pred(A,B)"]\n    "5" [label="g1(A,C)"]\n    "6" [label="g11(A,D)"]\n    "7" [label="g12(b,C)"]\n    "8" [label="g2(c,B)"]\n    "4" -> "5"\n    "5" -> "6"\n    "5" -> "7"\n    "4" -> "8"\n}').
-expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6934" [label="print(test)"]\n    "6935" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6936" [label="app([3],[4],A)"]\n    "6937" [label="print(3)"]\n    "6938" [label="app([],[4],B)"]\n    "6939" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6940" [label="print(1)"]\n    "6941" [label="app([2],[3,4],[2,3,4])"]\n    "6942" [label="print(2)"]\n    "6943" [label="app([],[3,4],[3,4])"]\n    "6944" [label="print(done)"]\n    "6935" -> "6936"\n    "6936" -> "6937"\n    "6936" -> "6938"\n    "6935" -> "6939"\n    "6939" -> "6940"\n    "6939" -> "6941"\n    "6941" -> "6942"\n    "6941" -> "6943"\n}').
-expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12495" [label="print(failure_test)"]\n    "12496" [label="append([1],[2],[3])"]\n}').
-expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16757" [label="member_square([1,a,3])"]\n    "16758" [label="member(A,[1,a,3])"]\n    "16759" [label="B is 1*1"]\n    "16760" [label="print(1)"]\n    "16761" [label="B is a*a"]\n    "16757" -> "16758"\n    "16757" -> "16759"\n    "16757" -> "16760"\n    "16757" -> "16761"\n}').
+expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6931" [label="print(test)"]\n    "6932" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6933" [label="app([3],[4],A)"]\n    "6934" [label="print(3)"]\n    "6935" [label="app([],[4],B)"]\n    "6936" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6937" [label="print(1)"]\n    "6938" [label="app([2],[3,4],[2,3,4])"]\n    "6939" [label="print(2)"]\n    "6940" [label="app([],[3,4],[3,4])"]\n    "6941" [label="print(done)"]\n    "6932" -> "6933"\n    "6933" -> "6934"\n    "6933" -> "6935"\n    "6932" -> "6936"\n    "6936" -> "6937"\n    "6936" -> "6938"\n    "6938" -> "6939"\n    "6938" -> "6940"\n}').
+expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12492" [label="print(failure_test)"]\n    "12493" [label="append([1],[2],[3])"]\n}').
+expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16778" [label="member_square([1,a,3])"]\n    "16779" [label="member(A,[1,a,3])"]\n    "16780" [label="B is 1*1"]\n    "16781" [label="print(1)"]\n    "16782" [label="B is a*a"]\n    "16778" -> "16779"\n    "16778" -> "16780"\n    "16778" -> "16781"\n    "16778" -> "16782"\n}').
 :- endif.
 
 
@@ -1487,7 +1489,7 @@ test(sld_tree_failure, [true(Result = ExpectedResult)]) :-
   % When printing the SLD tree, everything computed before the failure is output
   Request = 'jupyter:print_sld_tree((print(failure_test), append([1], [2], [3]), print(not_reached))).',
   expected_print_sld_tree(sld_tree_failure, ExpectedSldData),
-  ExpectedResult = json([code= -4711,message='Failure',data=json([error_info='',output=failure_test,print_sld_tree=SldData])]),
+  ExpectedResult = json([code= -4711,message='Failure',data=json([prolog_message='',output=failure_test,print_sld_tree=SldData])]),
   check_equality(SldData, ExpectedSldData),
   send_call_with_single_error_result(Request, 5, Result).
 
@@ -1499,10 +1501,10 @@ test(sld_tree_exception, [true(SldData = ExpectedSldData)]) :-
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % When printing the SLD tree, everything computed before the exception is output
   Request = 'jupyter:print_sld_tree(member_square([1,a,3])).',
-  expected_error_info_subterm(sld_tree_exception, Before, Length, ExpectedErrorInfoSubterm),
+  expected_prolog_message_subterm(sld_tree_exception, Before, Length, ExpectedErrorInfoSubterm),
   expected_output(sld_tree_exception, ExpectedOutput),
   expected_print_sld_tree(sld_tree_exception, ExpectedSldData),
-  Result = json([code= -4712,message='Exception',data=json([error_info=ErrorInfo,output=Output,print_sld_tree=SldData])]),
+  Result = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,output=Output,print_sld_tree=SldData])]),
   send_call_with_single_error_result(Request, 7, Result),
   % Get the subterm of the error info which is to be compared with the expected one
   sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm),
@@ -1516,13 +1518,13 @@ test(print_sld_tree_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSu
 
 
 :- if(swi).
-expected_error_info_subterm(incorrect_pred_spec, 0, 128, 'ERROR: Incorrect predicate specification: edge\nERROR: It needs to be of the form PredName/PredArity or Module:PredName/PredArity').
-expected_error_info_subterm(incorrect_index, 0, 77, 'ERROR: All indices need to be less or equal to the provided predicate arity 3').
-expected_error_info_subterm(print_transition_graph_no_single_goal, 0, 75, 'ERROR: jupyter:print_transition_graph/4 needs to be the only goal in a term').
+expected_prolog_message_subterm(incorrect_pred_spec, 0, 128, 'ERROR: Incorrect predicate specification: edge\nERROR: It needs to be of the form PredName/PredArity or Module:PredName/PredArity').
+expected_prolog_message_subterm(incorrect_index, 0, 77, 'ERROR: All indices need to be less or equal to the provided predicate arity 3').
+expected_prolog_message_subterm(print_transition_graph_no_single_goal, 0, 75, 'ERROR: jupyter:print_transition_graph/4 needs to be the only goal in a term').
 :- else.
-expected_error_info_subterm(incorrect_pred_spec, 0, 118, '! Incorrect predicate specification: edge\n! It needs to be of the form PredName/PredArity or Module:PredName/PredArity').
-expected_error_info_subterm(incorrect_index, 0, 72, '! All indices need to be less or equal to the provided predicate arity 3').
-expected_error_info_subterm(print_transition_graph_no_single_goal, 0, 70, '! jupyter:print_transition_graph/4 needs to be the only goal in a term').
+expected_prolog_message_subterm(incorrect_pred_spec, 0, 118, '! Incorrect predicate specification: edge\n! It needs to be of the form PredName/PredArity or Module:PredName/PredArity').
+expected_prolog_message_subterm(incorrect_index, 0, 72, '! All indices need to be less or equal to the provided predicate arity 3').
+expected_prolog_message_subterm(print_transition_graph_no_single_goal, 0, 70, '! jupyter:print_transition_graph/4 needs to be the only goal in a term').
 :- endif.
 
 
@@ -1575,11 +1577,11 @@ test(transition_graph_without_labels, [true(Result = ExpectedResult)]) :-
 
 
 :- if(swi).
-expected_error_info_subterm(variable_argument, 0, 55, 'ERROR: The Prolog implementation ID needs to be an atom').
-expected_error_info_subterm(set_prolog_impl_no_single_goal, 0, 68, 'ERROR: jupyter:set_prolog_impl/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(variable_argument, 0, 55, 'ERROR: The Prolog implementation ID needs to be an atom').
+expected_prolog_message_subterm(set_prolog_impl_no_single_goal, 0, 68, 'ERROR: jupyter:set_prolog_impl/1 needs to be the only goal in a term').
 :- else.
-expected_error_info_subterm(variable_argument, 0, 50, '! The Prolog implementation ID needs to be an atom').
-expected_error_info_subterm(set_prolog_impl_no_single_goal, 0, 63, '! jupyter:set_prolog_impl/1 needs to be the only goal in a term').
+expected_prolog_message_subterm(variable_argument, 0, 50, '! The Prolog implementation ID needs to be an atom').
+expected_prolog_message_subterm(set_prolog_impl_no_single_goal, 0, 63, '! jupyter:set_prolog_impl/1 needs to be the only goal in a term').
 :- endif.
 
 :- begin_tests(set_prolog_impl, [setup((start_process)), cleanup(release_process(true))]).
@@ -1604,7 +1606,7 @@ test(set_prolog_impl_success, [true(Result = ExpectedResult)]) :-
 test(help_0, [true(HelpResult = ExpectedHelpResult)]) :-
   % If user:help/0 is called instead of jupyter:help/0 and the predicate is not defined, an error message is output
   HelpRequest = 'help.',
-  ExpectedError = json([code= -4712,message='Exception',data=json([error_info='! Existence error in user:help/0\n! procedure user:help/0 does not exist\n! goal:  user:help\n! \n! However, there is the predicate jupyter:help/0'])]),
+  ExpectedError = json([code= -4712,message='Exception',data=json([prolog_message='! Existence error in user:help/0\n! procedure user:help/0 does not exist\n! goal:  user:help\n! \n! However, there is the predicate jupyter:help/0'])]),
   send_call_with_single_error_result(HelpRequest, 1, HelpError),
   check_equality(HelpError, ExpectedError),
   % Define the predicate help/0

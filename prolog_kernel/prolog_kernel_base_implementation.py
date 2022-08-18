@@ -414,20 +414,19 @@ class PrologKernelBaseImplementation:
         """
         The dictionary response_dict contains the key 'error'.
         The corresponding value is a dictionary containing the error data.
-        The member 'data' can contain members 'error_info (e.g. a more specific error message) and 'output' (output of the request before the error occurred).
+        The member 'data' can contain members 'prolog_message (e.g. a more specific error message) and 'output' (output of the request before the error occurred).
 
         Example
         ------
         For the cell code
-          ":- append([1], [2], Res), print(Res).
-          :- append(1, 2, Res), print(Res)."
+          "print(test), 3 is 1 + x."
         the error dictionary is:
         {
             "code": -4712,
             "message": "Exception",
             "data": {
-                "error_info": "* append(1,2,Res),print(Res) - goal failed",
-                "output": "[1,2]"
+                "prolog_message": "! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x",
+                "output": "test"
             }
         }
         """
@@ -447,18 +446,22 @@ class PrologKernelBaseImplementation:
 
         if error_code == -4711:
             ename = 'failure'
-            response_text = self.implementation_data["failure_response"]
+            if error['data']['prolog_message'] != '':
+                output += '\n' + error['data']['prolog_message']
+                response_text = error['data']['prolog_message']
+            else:
+                response_text = self.implementation_data["failure_response"]
         elif error_code == -4712:
-            # Exception: "error_info" contains the error message
+            # Exception: "prolog_message" contains the error message
             ename = 'exception'
-            output += '\n' + error['data']['error_info']
-            response_text = error['data']['error_info'] + '\n'
+            output += '\n' + error['data']['prolog_message']
+            response_text = error['data']['prolog_message'] + '\n'
         elif error_code == -4715:
             # Unhandled exception: the server needs to be restarted
             ename = 'unhandled exception'
-            output += '\n' + error['data']['error_info']
+            output += '\n' + error['data']['prolog_message']
             self.kill_prolog_server()
-            response_text = error['data']['error_info'] + '\n' + self.implementation_data["error_prefix"] + 'The Prolog server needs to be restarted'
+            response_text = error['data']['prolog_message'] + '\n' + self.implementation_data["error_prefix"] + 'The Prolog server needs to be restarted'
         else:
             ename = 'error'
             output += '\n' + error['message']

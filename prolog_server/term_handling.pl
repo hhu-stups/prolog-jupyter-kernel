@@ -42,7 +42,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
 :- use_module(library(lists), [delete/3, reverse/2, nth1/3]).
 :- use_module(logging, [log/1, log/2]).
-:- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0, exception_message/2, assert_query_start_time/0]).
+:- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0, assert_query_start_time/0]).
 :- use_module(jsonrpc, [send_error_reply/3]).
 :- use_module(request_handling, [loop/3]).
 
@@ -161,9 +161,8 @@ handle_clause_definition(Clause) :-
   retract_previous_clauses(Module:PredName/PredArity, RetractedClauses, Output),
   % Assert the clause and check if it was successful
   catch(assertz(Module:ClauseWithoutModule), Exception, true),
-  output:exception_message(Exception, ExceptionMessage),
-  ( nonvar(ExceptionMessage) ->
-    assert_error_response(exception, ExceptionMessage, Output, [retracted_clauses=RetractedClauses])
+  ( nonvar(Exception) ->
+    assert_error_response(exception, message_data(error, Exception), Output, [retracted_clauses=RetractedClauses])
   ; otherwise ->
     assert_success_response(clause_definition, [], Output, [retracted_clauses=RetractedClauses])
   ).
@@ -293,8 +292,7 @@ handle_query_term(Term, IsDirective, CallRequestId, Stack, Bindings, LoopCont, C
   % Before executing a query, replace any of its subterms of the form $Var by the latest value of the variable Var from a previous query.
   replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings, Exception),
   ( nonvar(Exception) ->
-    output:exception_message(Exception, ExceptionMessage),
-    assert_error_response(exception, ExceptionMessage, '', []),
+    assert_error_response(exception, message_data(error, Exception), '', []),
     Cont = continue
   ; otherwise ->
     % Create a term_data(TermAtom, Bindings) term.
@@ -364,8 +362,7 @@ handle_query_term_(trace(_Pred, _Ports), _IsDirective, _CallRequestId, _Stack, _
 :- endif.
 % leash/1
 handle_query_term_(leash(_Ports), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  output:exception_message(jupyter(leash_pred), Message),
-  assert_error_response(exception, Message, '', []).
+  assert_error_response(exception, message_data(error, jupyter(leash_pred)), '', []).
 % Any other query
 handle_query_term_(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData, LoopCont, Cont) :-
   handle_query(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData, LoopCont, Cont).
@@ -392,12 +389,12 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
   retractall(is_retry(_)),
   asserta(is_retry(false)),
   % Call the goal Goal
-  output:call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ExceptionMessage, IsFailure),
+  output:call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure),
   retry_message_and_output(GoalAtom, Output, RetryMessageAndOutput),
   % Exception, failure or success from Goal
-  ( nonvar(ExceptionMessage) -> % Exception
+  ( nonvar(ErrorMessageData) -> % Exception
     !,
-    assert_error_response(exception, ExceptionMessage, RetryMessageAndOutput, []),
+    assert_error_response(exception, ErrorMessageData, RetryMessageAndOutput, []),
     Cont = continue
   ; IsFailure == true -> % Failure
     !,
@@ -424,25 +421,11 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
 
 % assert_query_failure_response(+IsDirective, +GoalAtom, +Output)
 assert_query_failure_response(true, GoalAtom, Output) :-
-  % For directives, append a message displaying the failure
+  % For directives, output an error message displaying the failure
   !,
-  directive_failed_message(GoalAtom, FailureMessage),
-  output_and_failure_message(Output, FailureMessage, OutputAndFailureMessage),
-  assert_error_response(failure, '', OutputAndFailureMessage, []).
+  assert_error_response(failure, message_data(warning, jupyter(goal_failed(GoalAtom))), Output, []).
 assert_query_failure_response(_IsDirective, _GoalAtom, Output) :-
-  assert_error_response(failure, '', Output, []).
-
-
-% directive_failed_message(+Goal, -FailureMessage)
-:- if(swi).
-directive_failed_message(Goal, FailureMessage) :-
-  format_to_codes('ERROR: Goal (directive) failed: ~w', [Goal], FailureMessageCodes),
-  atom_codes(FailureMessage, FailureMessageCodes).
-:- else.
-directive_failed_message(Goal, FailureMessage) :-
-  format_to_codes('* ~w - goal failed', [Goal], FailureMessageCodes),
-  atom_codes(FailureMessage, FailureMessageCodes).
-:- endif.
+  assert_error_response(failure, null, Output, []).
 
 
 % output_and_failure_message(+Output, +FailureMessage, -OutputAndFailureMessage)
@@ -589,7 +572,7 @@ handle_retry(Stack) :-
     output:assert_query_start_time,
     fail
   ; otherwise -> % No active call
-    assert_error_response(no_active_call, '', '', [])
+    assert_error_response(no_active_call, null, '', [])
   ).
 
 
@@ -610,7 +593,7 @@ handle_cut(Stack, Cont) :-
     assert_success_response(cut, [], CutMessage, []),
     Cont = cut
   ; otherwise -> % No active call
-    assert_error_response(no_active_call, '', '', []),
+    assert_error_response(no_active_call, null, '', []),
     Cont = continue
   ).
 
@@ -651,18 +634,18 @@ handle_halt :-
 % The header of the table will contain the names of the variables occurring in Goal.
 % Bindings is a list of Name=Var pairs, where Name is the name of a variable Var occurring in the goal Goal.
 handle_print_table_with_findall(Bindings, Goal) :-
-  ( output:call_with_output_to_file(term_handling:findall_results_and_var_names(Goal, Bindings, Results, VarNames), Output, ExceptionMessage),
+  ( output:call_with_output_to_file(term_handling:findall_results_and_var_names(Goal, Bindings, Results, VarNames), Output, ErrorMessageData),
     % Success or exception from findall_results_and_var_names/4
-    ( nonvar(ExceptionMessage) ->
+    ( nonvar(ErrorMessageData) ->
       !,
-      assert_error_response(exception, ExceptionMessage, '', [])
+      assert_error_response(exception, ErrorMessageData, '', [])
     ; otherwise -> % success
       % Return the additional 'print_table' data
       assert_success_response(print_table, [], Output, [print_table=json(['ValuesLists'=Results, 'VariableNames'=VarNames])])
     ),
     !
   ; % findall_results_and_var_names/4 failed
-    assert_error_response(failure, '', '', [])
+    assert_error_response(failure, null, '', [])
   ).
 
 
@@ -686,12 +669,10 @@ handle_print_table(Bindings, ValuesLists, VariableNames) :-
       % Return the additional 'print_table' data
       assert_success_response(print_table, [], '', [print_table=json(['ValuesLists'=JsonParsableValuesLists, 'VariableNames'=TableVariableNames])])
     ; otherwise -> % The variable names are invalid
-      output:exception_message(jupyter(invalid_table_variable_names), Message),
-      assert_error_response(exception, Message, '', [])
+      assert_error_response(exception, message_data(error, jupyter(invalid_table_variable_names)), '', [])
     )
   ; otherwise -> % Not all lists in ValuesLists are of the same length
-    output:exception_message(jupyter(invalid_table_values_lists_length), Message),
-    assert_error_response(exception, Message, '', [])
+    assert_error_response(exception, message_data(error, jupyter(invalid_table_values_lists_length)), '', [])
   ).
 
 
@@ -732,8 +713,7 @@ convert_to_atom_list(List, Bindings, AtomList) :-
 
 % handle_single_test_directive
 handle_single_test_directive :-
-  output:exception_message(jupyter(single_test_directive), Message),
-  assert_error_response(exception, Message, '', []).
+  assert_error_response(exception, message_data(error, jupyter(single_test_directive)), '', []).
 
 
 % handle_begin_tests(+Directive, +Bindings)
@@ -788,13 +768,13 @@ test_definition_end(LoadFile) :-
   % When loading the file, an exception or warning might be output
   ( LoadFile==true ->
     % When loading the file, an exception or warning might be output
-    output:call_with_output_to_file(load_files(TestFileName), Output, Exception)
+    output:call_with_output_to_file(load_files(TestFileName), Output, ErrorMessageData)
   ; otherwise ->
     Output = ''
   ),
   delete_file(TestFileName),
-  ( nonvar(Exception) ->
-    assert_error_response(exception, Exception, Output, [])
+  ( nonvar(ErrorMessageData) ->
+    assert_error_response(exception, message_data(error, ErrorMessageData), Output, [])
   ; otherwise ->
     atom_concat(Output, '\n% Loaded the test file', OutputWithLoadMessage),
     assert_success_response(directive, [], OutputWithLoadMessage, [])
@@ -812,8 +792,7 @@ test_definition_end(_LoadFile).
 
 % handle_trace(+TracePredSpec)
 handle_trace(TracePredSpec) :-
-  output:exception_message(jupyter(trace_pred(TracePredSpec)), Message),
-  assert_error_response(exception, Message, '', []).
+  assert_error_response(exception, message_data(error, jupyter(trace_pred(TracePredSpec))), '', []).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -925,11 +904,10 @@ handle_print_sld_tree(Goal, Bindings) :-
   % Assert the result response
   ( nonvar(Exception) -> % Exception
     !,
-    output:exception_message(Exception, ExceptionMessage),
-    assert_error_response(exception, ExceptionMessage, Output, [print_sld_tree=GraphFileContentAtom])
+    assert_error_response(exception, message_data(error, Exception), Output, [print_sld_tree=GraphFileContentAtom])
   ; IsFailure == true -> % Failure
     !,
-    assert_error_response(failure, '', Output, [print_sld_tree=GraphFileContentAtom])
+    assert_error_response(failure, null, Output, [print_sld_tree=GraphFileContentAtom])
   ; otherwise -> % Success
     handle_result_variable_bindings(Bindings, ResultBindings),
     assert_success_response(query, ResultBindings, Output, [print_sld_tree=GraphFileContentAtom])
@@ -1199,8 +1177,7 @@ handle_print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex).
 module_name_expanded_pred_spec(Module:PredName/PredArity, Module:PredName/PredArity) :- !.
 module_name_expanded_pred_spec(PredName/PredArity, user:PredName/PredArity) :- !.
 module_name_expanded_pred_spec(PredSpec, _) :-
-  output:exception_message(jupyter(print_transition_graph_pred_spec(PredSpec)), Message),
-  assert_error_response(exception, Message, '', []),
+  assert_error_response(exception, message_data(error, jupyter(print_transition_graph_pred_spec(PredSpec))), '', []),
   fail.
 
 
@@ -1212,8 +1189,7 @@ check_indices(PredArity, FromIndex, ToIndex, LabelIndex) :-
   LabelIndex =< PredArity,
   !.
 check_indices(PredArity, _FromIndex, _ToIndex, _LabelIndex) :-
-  output:exception_message(jupyter(print_transition_graph_indices(PredArity)), Message),
-  assert_error_response(exception, Message, '', []),
+  assert_error_response(exception, message_data(error, jupyter(print_transition_graph_indices(PredArity))), '', []),
   fail.
 
 
@@ -1256,8 +1232,7 @@ handle_set_prolog_impl(PrologImplementationID) :-
   !,
   assert_success_response(query, [], '', [set_prolog_impl_id=PrologImplementationID]).
 handle_set_prolog_impl(_PrologImplementationID) :-
-  output:exception_message(jupyter(prolog_impl_id_no_atom), ExceptionMessage),
-  assert_error_response(exception, ExceptionMessage, '', []).
+  assert_error_response(exception, message_data(error, jupyter(prolog_impl_id_no_atom)), '', []).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1279,14 +1254,14 @@ assert_success_response(Type, Bindings, Output, AdditionalData) :-
   assertz(term_response(json([status=success, type=Type, bindings=json(Bindings), output=Output|AdditionalData]))).
 
 
-% assert_error_response(+ErrorCode, +ErrorInfo, +Output, +AdditionalData)
+% assert_error_response(+ErrorCode, +ErrorMessageData, +Output, +AdditionalData)
 %
 % ErrorCode is one of the error codes defined by error_object_code/3 (e.g. exception).
-% ErrorInfo is additional information about the error (e.g. a more specific error message).
+% ErrorMessageData is a term of the form message_data(Kind, Term) so that the acutal error message can be retrieved with print_message(Kind, Term)
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
-assert_error_response(ErrorCode, ErrorInfo, Output, AdditionalData) :-
-  jsonrpc:json_error_term(ErrorCode, ErrorInfo, Output, AdditionalData, ErrorData),
+assert_error_response(ErrorCode, ErrorMessageData, Output, AdditionalData) :-
+  jsonrpc:json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, ErrorData),
   assertz(term_response(json([status=error, error=ErrorData]))).
 
 

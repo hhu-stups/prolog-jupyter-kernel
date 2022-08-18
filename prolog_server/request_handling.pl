@@ -30,7 +30,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(logging, [log/1, log/2]).
 :- use_module(jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
 :- use_module(term_handling, [handle_term/6, test_definition_end/1, pred_definition_specs/1, term_response/1]).
-:- use_module(output, [send_reply_on_error/0, exception_message/2]).
+:- use_module(output, [send_reply_on_error/0, retrieve_message/2]).
 :- use_module(jupyter, []).
 
 
@@ -70,7 +70,7 @@ handle_unexpected_exception(MessageTerm) :-
   % Delete the test definition file
   test_definition_end(false),
   % Send an error response
-  output:exception_message(MessageTerm, ExceptionMessage),
+  output:retrieve_message(message_data(error, MessageTerm), ExceptionMessage),
   jsonrpc:send_error_reply(@(null), unhandled_exception, ExceptionMessage),
   fail.
 
@@ -163,9 +163,9 @@ term_responses(_Num, []).
 dispatch_message(Message, Stack, Cont) :-
   Message = request(Method,_Id,_Params,_RPC), !,
   dispatch_request(Method, Message, Stack, Cont).
-dispatch_message(invalid(RPC), _Stack, continue) :-
+dispatch_message(invalid(_RPC), _Stack, continue) :-
   % Malformed -> the Id must be null
-  jsonrpc:send_error_reply(@(null), invalid_request, RPC).
+  jsonrpc:send_error_reply(@(null), invalid_request, '').
 
 
 % dispatch_request(+Method, +Message, +Stack, -Cont)
@@ -173,12 +173,12 @@ dispatch_message(invalid(RPC), _Stack, continue) :-
 % Checks the request method and handles the request accordingly.
 dispatch_request(call, Message, Stack, Cont) :-
   !,
-  Message = request(_Method,CallRequestId,Params,RPC),
-  jsonrpc:parse_json_terms_request(Params, TermsAndVariables, ParsingError),
+  Message = request(_Method,CallRequestId,Params,_RPC),
+  jsonrpc:parse_json_terms_request(Params, TermsAndVariables, ParsingErrorMessageData),
   ( var(TermsAndVariables) ->
     !,
     % An error occurred when parsing the json request
-    handle_parsing_error(ParsingError, CallRequestId, RPC),
+    handle_parsing_error(ParsingErrorMessageData, CallRequestId),
     Cont = continue
   ; TermsAndVariables = [] ->
     !,
@@ -234,20 +234,20 @@ dispatch_request(jupyter_predicate_docs, Message, _Stack, continue) :-
 dispatch_request(Method, Message, _Stack, continue) :-
   % Make sure that a 'retry' call can fail
   Method \= call,
-  Message = request(_,Id,_Params,RPC), !,
-  jsonrpc:send_error_reply(Id, method_not_found, RPC).
+  Message = request(_,Id,_Params,_RPC), !,
+  jsonrpc:send_error_reply(Id, method_not_found, '').
 
 
-% handle_parsing_error(+ParsingError, +CallRequestId, +RPC)
-handle_parsing_error(ParsingError, CallRequestId, _RPC) :-
-  nonvar(ParsingError),
+% handle_parsing_error(+ParsingErrorMessageData, +CallRequestId)
+handle_parsing_error(ParsingErrorMessageData, CallRequestId) :-
+  nonvar(ParsingErrorMessageData),
   !,
   % Parsing error when reading the terms from the request
-  ParsingError = parsing_error(_Exception, ExceptionMessage),
-  jsonrpc:send_error_reply(CallRequestId, exception, ExceptionMessage).
-handle_parsing_error(_ParsingError, CallRequestId, RPC) :-
+  retrieve_message(ParsingErrorMessageData, ErrorMessage),
+  jsonrpc:send_error_reply(CallRequestId, exception, ErrorMessage).
+handle_parsing_error(_ParsingErrorMessageData, CallRequestId) :-
   % Malformed request
-  jsonrpc:send_error_reply(CallRequestId, invalid_params, RPC).
+  jsonrpc:send_error_reply(CallRequestId, invalid_params, '').
 
 
 % generate_built_in_pred(-PredicateHead)

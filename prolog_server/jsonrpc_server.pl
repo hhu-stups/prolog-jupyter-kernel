@@ -107,6 +107,15 @@ user:generate_message_hook(existence_error(user:help,0,procedure,user:help/0,0))
 :- endif.
 
 
+:- if(swi).
+:- multifile prolog:message/3.
+juypter_message(goal_failed(Goal)) --> !,
+  ['Goal (directive) failed: ~w'-[Goal]], [nl].
+:- else.
+:- multifile user:generate_message_hook/3.
+juypter_message(goal_failed(Goal)) --> !,
+  ['~w - goal failed'-[Goal]], [nl].
+:- endif.
 juypter_message(invalid_table_values_lists_length) --> !,
   ['The values lists need to be of the same length'-[]], [nl].
 juypter_message(invalid_table_variable_names) --> !,
