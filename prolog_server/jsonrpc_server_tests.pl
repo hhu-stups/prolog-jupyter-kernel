@@ -1574,6 +1574,30 @@ test(transition_graph_without_labels, [true(Result = ExpectedResult)]) :-
 :- end_tests(print_transition_graph).
 
 
+:- if(swi).
+expected_error_info_subterm(variable_argument, 0, 55, 'ERROR: The Prolog implementation ID needs to be an atom').
+expected_error_info_subterm(set_prolog_impl_no_single_goal, 0, 68, 'ERROR: jupyter:set_prolog_impl/1 needs to be the only goal in a term').
+:- else.
+expected_error_info_subterm(variable_argument, 0, 50, '! The Prolog implementation ID needs to be an atom').
+expected_error_info_subterm(set_prolog_impl_no_single_goal, 0, 63, '! jupyter:set_prolog_impl/1 needs to be the only goal in a term').
+:- endif.
+
+:- begin_tests(set_prolog_impl, [setup((start_process)), cleanup(release_process(true))]).
+
+test(variable_argument, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(variable_argument, 'jupyter:set_prolog_impl(_Impl).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
+test(set_prolog_impl_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(set_prolog_impl_no_single_goal, 'Impl = swi, jupyter:set_prolog_impl(Impl).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
+test(set_prolog_impl_success, [true(Result = ExpectedResult)]) :-
+  Request = 'jupyter:set_prolog_impl(swi).',
+  ExpectedResult = [type=query,bindings=json([]),output='',set_prolog_impl_id='swi'],
+  send_call_with_single_success_result(Request, 3, Result).
+
+:- end_tests(set_prolog_impl).
+
+
 :- begin_tests(help, [setup((start_process)), cleanup(release_process(true))]).
 
 :- if(sicstus).
@@ -1589,9 +1613,8 @@ test(help_0, [true(HelpResult = ExpectedHelpResult)]) :-
   send_call_with_single_success_result(DefinitionRequest, 2, DefinitionResult),
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Once the predicate is defined, calling it works as expected
-  AppRequest = 'help.',
   ExpectedHelpResult = [type=query,bindings=json([]),output='help'],
-  send_call_with_single_success_result(AppRequest, 3, HelpResult).
+  send_call_with_single_success_result(HelpRequest, 3, HelpResult).
 :- endif.
 
 :- end_tests(help).

@@ -335,17 +335,17 @@ handle_query_term_(jupyter:halt, _IsDirective, _CallRequestId, _Stack, _Bindings
 handle_query_term_(halt, _IsDirective,_CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, done) :- !,
   % By unifying Cont=done, the loop reading and handling messages is stopped
   handle_halt.
-% print_table
+% jupyter predicates
 handle_query_term_(jupyter:print_table(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table_with_findall(Bindings, Goal).
 handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table(Bindings, ValuesLists, VariableNames).
-% print_sld_tree
 handle_query_term_(jupyter:print_sld_tree(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_sld_tree(Goal, Bindings).
-% print_transition_graph
 handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
+handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_set_prolog_impl(PrologImplementationID).
 % run_tests
 handle_query_term_(run_tests, _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests, CallRequestId, Stack, Bindings, Cont).
@@ -1240,6 +1240,24 @@ transition_graph_edge_atoms([Result|Results], FromIndex, ToIndex, LabelIndex, [E
   format_to_codes('    \"~w\" -> \"~w\" [label=\"~w\"]~n', [From, To, Label], EdgeCodes),
   atom_codes(EdgeAtom, EdgeCodes),
   transition_graph_edge_atoms(Results, FromIndex, ToIndex, LabelIndex, EdgeAtoms).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Change the Prolog implementation
+
+% The user requested to change the active Prolog implementation.
+% The actual changing of the implementation is handled by the client (the Jupyter kernel).
+% It expects an 'set_prolog_impl_id' item to be part of the result.
+
+% handle_set_prolog_impl(+PrologImplementationID)
+handle_set_prolog_impl(PrologImplementationID) :-
+  atom(PrologImplementationID),
+  !,
+  assert_success_response(query, [], '', [set_prolog_impl_id=PrologImplementationID]).
+handle_set_prolog_impl(_PrologImplementationID) :-
+  output:exception_message(jupyter(prolog_impl_id_no_atom), ExceptionMessage),
+  assert_error_response(exception, ExceptionMessage, '', []).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

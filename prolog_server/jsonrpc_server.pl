@@ -107,21 +107,23 @@ user:generate_message_hook(existence_error(user:help,0,procedure,user:help/0,0))
 :- endif.
 
 
-juypter_message(no_single_goal(Predicate)) --> !,
-  ['~w needs to be the only goal in a term'-[Predicate]], [nl].
-juypter_message(trace_pred(TracePredSpec)) --> !,
-  ['~w cannot be used in a Jupyter application'-[TracePredSpec]], [nl],
-  ['However, there is juypter:trace(Goal)'-[]], [nl].
-juypter_message(leash_pred) --> !,
-  ['The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint'-[]], [nl].
-juypter_message(invalid_table_variable_names) --> !,
-  ['The list of names needs to be empty or of the same length as the values lists and contain ground terms only'-[]], [nl].
 juypter_message(invalid_table_values_lists_length) --> !,
   ['The values lists need to be of the same length'-[]], [nl].
-juypter_message(single_test_directive) --> !,
-  ['The definition of a unit test cannot be split across multiple cells'-[]], [nl].
+juypter_message(invalid_table_variable_names) --> !,
+  ['The list of names needs to be empty or of the same length as the values lists and contain ground terms only'-[]], [nl].
+juypter_message(leash_pred) --> !,
+  ['The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint'-[]], [nl].
+juypter_message(no_single_goal(Predicate)) --> !,
+  ['~w needs to be the only goal in a term'-[Predicate]], [nl].
+juypter_message(print_transition_graph_indices(Arity)) --> !,
+  ['All indices need to be less or equal to the provided predicate arity ~w'-[Arity]], [nl].
 juypter_message(print_transition_graph_pred_spec(PredSpec)) --> !,
   ['Incorrect predicate specification: ~w'-[PredSpec]], [nl],
   ['It needs to be of the form PredName/PredArity or Module:PredName/PredArity'-[]], [nl].
-juypter_message(print_transition_graph_indices(Arity)) --> !,
-  ['All indices need to be less or equal to the provided predicate arity ~w'-[Arity]], [nl].
+juypter_message(prolog_impl_id_no_atom) --> !,
+  ['The Prolog implementation ID needs to be an atom'-[]], [nl].
+juypter_message(single_test_directive) --> !,
+  ['The definition of a unit test cannot be split across multiple cells'-[]], [nl].
+juypter_message(trace_pred(TracePredSpec)) --> !,
+  ['~w cannot be used in a Jupyter application'-[TracePredSpec]], [nl],
+  ['However, there is juypter:trace(Goal)'-[]], [nl].

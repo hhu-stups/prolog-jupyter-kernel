@@ -66,6 +66,11 @@ jupyter:print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex) :-
   throw(jupyter(no_single_goal(jupyter:print_transition_graph/4))).
 
 
+% jupyter:print_sld_tree(+PrologImplementationID)
+jupyter:set_prolog_impl(_PrologImplementationID) :-
+  throw(jupyter(no_single_goal(jupyter:set_prolog_impl/1))).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -202,6 +207,13 @@ predicate_doc('jupyter:print_previous_queries/1', Doc) :-
     '\n\n    Any $Var terms might be replaced by the variable\'s name.',
     '\n    This is the case if a previous query with ID in Ids contains Var.',
     '\n    Otherwise, $Var is not replaced.'
+  ], Doc).
+predicate_doc('jupyter:set_prolog_impl/1', Doc) :-
+  atom_concat([
+    'jupyter:set_prolog_impl(+PrologImplementationID)',
+    '\n\n    Activates the Prolog implementation with ID PrologImplementationID.',
+    '\n\n    Code in the same cell is executed with the previous implementation.',
+    '\n\n    Needs to be the only goal of a query.'
   ], Doc).
 
 

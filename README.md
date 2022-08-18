@@ -71,8 +71,7 @@ In general, the kernel can be configured to use a different Prolog implementatio
   - Additionally, a `kernel_implementation_path` (which needs to be absolute) can be provided:
     - The corresponding module needs to define a class `PrologKernelImplementation` as a subclass of `PrologKernelBaseImplementation`, which can be used to override the kernel's behavior (see [Overriding the Kernel Implementation](#overriding-the-kernel-implementation)).
 
-In addition to configuring the Prolog implementation to be used, the Prolog server implements a predicate with which the implementation can be changed. In order for this to work, the configured `implementation_data` dictionary needs to contain data for more than one Prolog implementation.
-(TODO implement!)
+In addition to configuring the Prolog implementation to be used, the Prolog server implements the predicate `jupyter:set_prolog_impl(+PrologImplementationID)` with which the implementation can be changed. In order for this to work, the configured `implementation_data` dictionary needs to contain data for more than one Prolog implementation.
 
 
 ### Overriding the Kernel Implementation

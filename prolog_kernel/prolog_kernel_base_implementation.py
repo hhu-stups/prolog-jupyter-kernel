@@ -18,20 +18,17 @@ from os import remove
 from signal import signal, SIGINT
 
 
-output_text_style = """
-font-family: Menlo, Consolas, 'DejaVu Sans Mono', monospace;
-font-size: 13px;
-line-height: 1.3077;
-"""
-
-
 class PrologKernelBaseImplementation:
+
+    output_text_style = "font-family: Menlo, Consolas, 'DejaVu Sans Mono', monospace; font-size: 13px; line-height: 1.3077;"
 
     def __init__(self, kernel):
         self.kernel = kernel
 
         self.logger = kernel.logger
+        self.implementation_id = kernel.implementation_id
         self.implementation_data = kernel.active_implementation_data
+
         self.prolog_proc = None
         self.is_server_restart_required = False
 
@@ -77,15 +74,14 @@ class PrologKernelBaseImplementation:
 
 
     def handle_interrupt(self):
-        # Interrupting the kernel interrupts the Prolog process, so it needs to be restarted
-        self.logger.debug('Kernel interrupted')
-        self.kill_prolog_server()
+        # Interrupting the kernel interrupts the running Prolog processes, so all of them need to be restarted
+        self.kernel.interrupt_all()
 
 
     def kill_prolog_server(self):
         """Kills the prolog server process if it is still running."""
         if self.prolog_proc is not None:
-            self.logger.debug('Kill Prolog server')
+            self.logger.debug(self.implementation_id + ': Kill Prolog server')
             self.prolog_proc.kill()
             self.is_server_restart_required = True
 
@@ -120,6 +116,11 @@ class PrologKernelBaseImplementation:
     ############################################################################
 
 
+    def do_shutdown(self, restart):
+        self.kill_prolog_server()
+        return {'status': 'ok', 'restart': restart}
+
+
     def do_execute(self, code, silent, store_history=True, user_expressions=None, allow_stdin=False):
         """
         A request to execute code was received.
@@ -132,7 +133,7 @@ class PrologKernelBaseImplementation:
             try:
                 # Check if the server had been shutdown (because of 'halt', an interrupt, or an exception) and a server restart is necessary
                 if self.is_server_restart_required:
-                    self.logger.debug('Restart Prolog server')
+                    self.logger.debug(self.implementation_id + ': Restart Prolog server')
                     self.start_prolog_server()
                     self.send_response_display_data(self.implementation_data["informational_prefix"] + 'The Prolog server was restarted', "color:red")
 
@@ -159,11 +160,6 @@ class PrologKernelBaseImplementation:
                 return {'status': 'error', 'ename' : 'exception', 'evalue' : '', 'traceback' : ''}
 
         return reply_object
-
-
-    def do_shutdown(self, restart):
-        self.kill_prolog_server()
-        return {'status': 'ok', 'restart': restart}
 
 
     def do_complete(self, code, cursor_pos):
@@ -360,19 +356,28 @@ class PrologKernelBaseImplementation:
                 is_error = True
                 self.handle_error_response(term_result)
             elif status == "success":
-                self.handle_additional_data(term_result)
+                # Handle any additional data and check if the handling was successful
+                is_additional_data_error = not self.handle_additional_data(term_result)
+                is_error = is_error or is_additional_data_error
 
                 # Send the output to the frontend
                 output = term_result["output"]
                 if output != "":
                     self.send_response_display_data(str(output))
 
+
                 type = term_result["type"]
                 if type == "query":
-                    # Send the variable names and values or "yes" to the frontend
+                    additional_style = ''
+                    # Send the variable names and values or a success or failure response to the frontend
                     bindings = term_result["bindings"]
                     if bindings == {}:
-                        response_text = self.implementation_data["success_response"]
+                        if is_additional_data_error:
+                            # The handling of the additional data has failed
+                            response_text = self.implementation_data["failure_response"]
+                            additional_style = 'color:red;'
+                        else:
+                            response_text = self.implementation_data["success_response"]
                     else:
                         # Read the variable values
                         variable_values = []
@@ -385,7 +390,7 @@ class PrologKernelBaseImplementation:
                                 variable_values.append(str(var) + ' = ' + str(val))
                         response_text = ",\n".join(variable_values)
 
-                    self.send_response_display_data(response_text, 'font-weight: bold;')
+                    self.send_response_display_data(response_text, 'font-weight:bold;' + additional_style)
             index = index + 1
 
         # If at least one of the terms caused an error, an error reply is sent to the client
@@ -429,7 +434,6 @@ class PrologKernelBaseImplementation:
 
         error = response_dict["error"]
         error_code = error['code']
-        self.logger.debug('error code: ' + str(error_code))
 
         if error['data']:
             self.handle_additional_data(error['data'])
@@ -472,14 +476,21 @@ class PrologKernelBaseImplementation:
 
     def handle_additional_data(self, dict):
         """Handles additional data which may be present in the dict."""
+        is_success = True
+
         if 'retracted_clauses' in dict:
-            self.handle_retracted_clauses(dict['retracted_clauses'])
+            is_success = is_success and self.handle_retracted_clauses(dict['retracted_clauses'])
         if 'print_table' in dict:
-            self.handle_print_table(dict['print_table'])
+            is_success = is_success and self.handle_print_table(dict['print_table'])
         if 'print_sld_tree' in dict:
-            self.handle_print_graph(dict['print_sld_tree'])
+            is_success = is_success and self.handle_print_graph(dict['print_sld_tree'])
         if 'print_transition_graph' in dict:
-            self.handle_print_graph(dict['print_transition_graph'])
+            is_success = is_success and self.handle_print_graph(dict['print_transition_graph'])
+        if 'set_prolog_impl_id' in dict:
+            is_success = is_success and self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
+
+        return is_success
+
 
 
     def handle_retracted_clauses(self, retracted_clauses):
@@ -487,18 +498,17 @@ class PrologKernelBaseImplementation:
         Handles the displaying of clauses which were retracted.
         Since this might not always be of interest for the user, a HTML <details> tag is used with which information can be displayed which can be expanded.
         The dictionary retracted_clauses contains the retracted clauses.
-        The keys are the predicate specs and the values are the actual clauses which were retracted as output by listing/1.
+        It contains a single element of which the key is the predicate spec and the value is a string of the actual clauses which were retracted as output by listing/1.
 
         Example
         ------
-        {'user:app/3': 'app([], A, A) :- !.\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n',
-         'user:app/4': 'app(A, B, C, D) :-\n        app(B, C, E),\n        app(A, E, D).\n'}
+        {'user:app/3': 'app([], A, A) :- !.\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n'}
         """
         if retracted_clauses:
             style = """
             <style>
             details  {
-            """ + output_text_style + """
+            """ + self.output_text_style + """
             }
 
             details > summary {
@@ -507,16 +517,12 @@ class PrologKernelBaseImplementation:
             </style>
             """
 
-            # For each entry in retracted_clauses, create a details object
-            html_details = ''
-            plain_text = ''
-            for pred_spec, listing in retracted_clauses.items():
-                html_details += '<details open><summary>' + pred_spec + '</summary><pre>' + listing + '</pre><br></details>'
-                plain_text += pred_spec + ':\n' + listing + '\n'
+            pred_spec = list(retracted_clauses.keys())[0]
+            listing = retracted_clauses[pred_spec]
 
             # Create an expandable message saying that clauses have been retracted
-            html = '<details><summary>Some previously defined clauses were retracted (click to expand)</summary>' + html_details + '</details>'
-            plain_text = 'Some previously defined clauses were retracted:\n' + plain_text
+            html = '<details><summary>Previously defined clauses of ' + pred_spec + ' were retracted (click to expand)</summary><pre>' + listing + '</pre></details>'
+            plain_text = 'Previously defined clauses of ' + pred_spec + ' were retracted:\n' + listing
 
             display_data = {
                 'data': {
@@ -525,6 +531,7 @@ class PrologKernelBaseImplementation:
                 'metadata': {
                     'application/json' : {}}}
             self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+        return True
 
 
     def handle_print_table(self, print_table_dict):
@@ -568,6 +575,7 @@ class PrologKernelBaseImplementation:
 
         display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$')}, 'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+        return True
 
 
     def handle_print_graph(self, graph_file_content):
@@ -620,6 +628,12 @@ class PrologKernelBaseImplementation:
             },
             'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+        return True
+
+
+    def handle_set_prolog_impl(self, prolog_impl_id):
+        """The user requested to change the active Prolog implementation, which needs to be handled by the kernel."""
+        return self.kernel.change_prolog_implementation(prolog_impl_id)
 
 
     def send_response_display_data(self, text, additional_style=""):
@@ -630,7 +644,7 @@ class PrologKernelBaseImplementation:
         display_data = {
             'data': {
                 'text/plain': text,
-                'text/markdown': '<pre style="' + output_text_style + additional_style + '">' + text + '</pre>',
+                'text/markdown': '<pre style="' + self.output_text_style + additional_style + '">' + text + '</pre>',
                 'text/latex': text.replace('\n', '\\\\\n ') # TODO adjust for latex
             },
             'metadata': {}}

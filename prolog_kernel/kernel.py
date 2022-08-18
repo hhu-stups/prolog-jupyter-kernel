@@ -8,7 +8,7 @@ In addition to providing an implementation_id (for SICStus und SWI-Prolog, the I
 further implementation specific data (a dictionary 'implementation_data' with the implementation_id as key) can be defined.
 This includes the command line arguments with which the Prolog server can be started.
 
-Additionally, there is a Prolog predicate with which the implementation can be changed.   (TODO implement!)
+Additionally, there is the Prolog predicate 'jupyter:set_prolog_impl(+PrologImplementationID)' with which the implementation can be changed.
 In order for this to work, the configured 'implementation_data' dictionary needs to contain data for more than one Prolog implementation.
 
 An example of a configuration file with an explanation of the options and their default values commented out can be found in the current directory.
@@ -114,14 +114,23 @@ class PrologKernel(Kernel):
 
     logger = None
 
+    # A dictionary with implementation ids as keys and the corresponding PrologKernelBaseImplementation as value.
+    # When a Prolog implementation is started, it is added to the dictionary.
+    # On kernel shutdown or interruption, all implementations are shutdown/interrupted
+    active_kernel_implementations = {}
+
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.logger = logging.getLogger()
 
-        # Load the configuration, configured implementation specific data
+        # Load the configuration and configured implementation specific data
         self.load_config_file()
-        self.load_implementation_data()
+        load_exception_message = self.load_implementation_data(self.implementation_id)
+        if load_exception_message:
+            # The configured implementation_data is invalid
+            raise Exception(load_exception_message)
 
         # Create an implementation object which starts the Prolog server
         self.load_kernel_implementation()
@@ -168,30 +177,29 @@ class PrologKernel(Kernel):
                 self.update_config(config)
 
 
-    def load_implementation_data(self):
+    def load_implementation_data(self, implementation_id):
         """
-        Tries to set the implementation data for the active Prolog implementation.
-        If no such data is provided for the given implementation ID or the dictionary does not contains all required keys, an exception is raised.
+        Tries to set the implementation data for the Prolog implementation with ID implementation_id.
+        If no such data is provided for the given implementation ID or the dictionary does not contain all required keys, a corresponding message is returned.
         """
 
         # Check if there is an item for the implementation_id
-        if not self.implementation_id in self.implementation_data:
-            raise Exception("There is no configured implementation_data entry for the implementation_id '" + self.implementation_id + "'")
-
-        self.active_implementation_data = self.implementation_data[self.implementation_id]
+        if not implementation_id in self.implementation_data:
+            return "There is no configured implementation_data entry for the Prolog implementation ID '" + implementation_id + "'"
 
         # Check if all required keys are contained in the dictionary
         missing_keys = []
         for key in self.required_implementation_data_keys:
-            if not key in self.active_implementation_data:
+            if not key in self.implementation_data[implementation_id]:
                 missing_keys.append(key)
 
         if missing_keys == []:
-            return None
+            # The implementation data is valid
+            self.active_implementation_data = self.implementation_data[implementation_id]
         elif len(missing_keys) == 1:
-            raise Exception("The configured implementation_data dict for the implementation_id '" + self.implementation_id + "' needs to contain an entry for '" + missing_keys[0] + "'")
+            return "The configured implementation_data dict for the Prolog implementation ID '" + implementation_id + "' needs to contain an entry for '" + missing_keys[0] + "'"
         else:
-            raise Exception("The configured implementation_data dict for the implementation_id '" + self.implementation_id + "' needs to contain entries for '" + "', '".join(missing_keys) + "'")
+            return "The configured implementation_data dict for the Prolog implementation ID '" + implementation_id + "' needs to contain entries for '" + "', '".join(missing_keys) + "'"
 
 
     def load_kernel_implementation(self):
@@ -230,8 +238,8 @@ class PrologKernel(Kernel):
                 else:
                     # Try loading the specific implementation
                     try:
-                        self.kernel_implementation = kernel_implementation_module.PrologKernelImplementation(self)
-                        if not isinstance(self.kernel_implementation, kernel_implementation_module.PrologKernelBaseImplementation):
+                        self.active_kernel_implementation = kernel_implementation_module.PrologKernelImplementation(self)
+                        if not isinstance(self.active_kernel_implementation, kernel_implementation_module.PrologKernelBaseImplementation):
                             use_default = True
                             self.logger.debug("The class 'PrologKernelImplementation' needs to be a subclass of 'PrologKernelBaseImplementation'")
                     except Exception:
@@ -246,13 +254,56 @@ class PrologKernel(Kernel):
             # A default implementation is used instead
             if self.implementation_id == 'swi':
                 self.logger.debug("Using the default implementation for SWI-Prolog")
-                self.kernel_implementation = prolog_kernel.swi_kernel_implementation.PrologKernelImplementation(self)
+                self.active_kernel_implementation = prolog_kernel.swi_kernel_implementation.PrologKernelImplementation(self)
             elif self.implementation_id == 'sicstus':
                 self.logger.debug("Using the default implementation for SICStus Prolog")
-                self.kernel_implementation = prolog_kernel.sicstus_kernel_implementation.PrologKernelImplementation(self)
+                self.active_kernel_implementation = prolog_kernel.sicstus_kernel_implementation.PrologKernelImplementation(self)
             else:
                 self.logger.debug("Using the base implementation")
-                self.kernel_implementation = PrologKernelBaseImplementation(self)
+                self.active_kernel_implementation = PrologKernelBaseImplementation(self)
+
+        # Add the Prolog implementation specific implementation class to the dictionary of active implementations
+        self.active_kernel_implementations[self.implementation_id] = self.active_kernel_implementation
+
+
+    def change_prolog_implementation(self, prolog_impl_id):
+        self.logger.debug('Change Prolog implementation to ' + str(prolog_impl_id))
+
+        if prolog_impl_id in self.active_kernel_implementations:
+            # There is a running Prolog server for the provided implementation ID
+            # Make it the active one
+            self.implementation_id = prolog_impl_id
+            self.active_kernel_implementation = self.active_kernel_implementations[self.implementation_id]
+            return True
+        else:
+            # Try to load the implementation specific data
+            load_exception_message = self.load_implementation_data(prolog_impl_id)
+            if load_exception_message:
+                self.logger.debug(load_exception_message)
+                # The configured implementation_data is invalid
+                # Display an error message
+                load_exception_message = self.active_implementation_data["error_prefix"] + load_exception_message
+
+                display_data = {
+                    'data': {
+                        'text/plain': load_exception_message,
+                        'text/markdown': '<pre style="' + self.active_kernel_implementation.output_text_style + 'color:red">' + load_exception_message + '</pre>',
+                        'text/latex': load_exception_message.replace('\n', '\\\\\n ') # TODO adjust for latex
+                    },
+                    'metadata': {}}
+                self.send_response(self.iopub_socket, 'display_data', display_data)
+                return False
+            else:
+                self.implementation_id = prolog_impl_id
+                # Create an implementation object which starts the Prolog server
+                self.load_kernel_implementation()
+                return True
+
+
+    def interrupt_all(self):
+        # Interrupting the kernel interrupts the running Prolog processes, so all of them need to be restarted
+        for implementation_id, kernel_implementation in self.active_kernel_implementations.items():
+            kernel_implementation.kill_prolog_server()
 
 
     ############################################################################
@@ -260,17 +311,21 @@ class PrologKernel(Kernel):
     ############################################################################
 
 
-    def do_execute(self, code, silent, store_history=True, user_expressions=None, allow_stdin=False):
-        return self.kernel_implementation.do_execute(code, silent, store_history, user_expressions, allow_stdin)
-
-
     def do_shutdown(self, restart):
-        return self.kernel_implementation.do_shutdown(restart)
+        # Shutdown all active Prolog servers so that no processes are kept running
+        for kernel_implementation in self.active_kernel_implementations.values():
+            kernel_implementation.do_shutdown(restart)
+
+        return {'status': 'ok', 'restart': restart}
+
+
+    def do_execute(self, code, silent, store_history=True, user_expressions=None, allow_stdin=False):
+        return self.active_kernel_implementation.do_execute(code, silent, store_history, user_expressions, allow_stdin)
 
 
     def do_complete(self, code, cursor_pos):
-        return self.kernel_implementation.do_complete(code, cursor_pos)
+        return self.active_kernel_implementation.do_complete(code, cursor_pos)
 
 
     def do_inspect(self, code, cursor_pos, detail_level=0, omit_sections=()):
-        return self.kernel_implementation.do_inspect(code, cursor_pos, detail_level, omit_sections)
+        return self.active_kernel_implementation.do_inspect(code, cursor_pos, detail_level, omit_sections)
