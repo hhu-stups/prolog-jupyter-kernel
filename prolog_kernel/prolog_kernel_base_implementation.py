@@ -100,8 +100,8 @@ class PrologKernelBaseImplementation:
         """Requests information from the Prolog server which is needed for code completion and inspection."""
         try:
             # The currently defined predicates are used for code completion
-            predicates_response_dict = self.server_request(0, 'predicates', log_response=False)
-            self.current_predicates = predicates_response_dict["result"]
+            response_dict = self.server_request(0, 'call', {'code':'jupyter:update_completion_data.'}, log_response=False)
+            self.current_predicates = response_dict['result']['1']['predicate_atoms']
 
             # Retrieve the documentation texts which are shown when a predicate provided by the Prolog server in the module 'Jupyter' is inspected
             jupyter_predicate_docs_dict = self.server_request(0, 'jupyter_predicate_docs', log_response=False)
@@ -357,7 +357,7 @@ class PrologKernelBaseImplementation:
                 self.handle_error_response(term_result)
             elif status == "success":
                 # Handle any additional data and check if the handling was successful
-                is_additional_data_error = not self.handle_additional_data(term_result)
+                is_additional_data_error = self.handle_additional_data(term_result)
                 is_error = is_error or is_additional_data_error
 
                 # Send the output to the frontend
@@ -478,22 +478,26 @@ class PrologKernelBaseImplementation:
 
 
     def handle_additional_data(self, dict):
-        """Handles additional data which may be present in the dict."""
-        is_success = True
+        """
+        Handles additional data which may be present in the dict.
+        Returns True if something goes wrong during the handling.
+        """
+        is_failure = False
 
         if 'retracted_clauses' in dict:
-            is_success = is_success and self.handle_retracted_clauses(dict['retracted_clauses'])
+            is_failure = is_failure or self.handle_retracted_clauses(dict['retracted_clauses'])
         if 'print_table' in dict:
-            is_success = is_success and self.handle_print_table(dict['print_table'])
+            is_failure = is_failure or self.handle_print_table(dict['print_table'])
         if 'print_sld_tree' in dict:
-            is_success = is_success and self.handle_print_graph(dict['print_sld_tree'])
+            is_failure = is_failure or self.handle_print_graph(dict['print_sld_tree'])
         if 'print_transition_graph' in dict:
-            is_success = is_success and self.handle_print_graph(dict['print_transition_graph'])
+            is_failure = is_failure or self.handle_print_graph(dict['print_transition_graph'])
         if 'set_prolog_impl_id' in dict:
-            is_success = is_success and self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
+            is_failure = is_failure or self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
+        if 'predicate_atoms' in dict:
+            is_failure = is_failure or self.handle_completion_data_update(dict['predicate_atoms'])
 
-        return is_success
-
+        return is_failure
 
 
     def handle_retracted_clauses(self, retracted_clauses):
@@ -534,7 +538,6 @@ class PrologKernelBaseImplementation:
                 'metadata': {
                     'application/json' : {}}}
             self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
-        return True
 
 
     def handle_print_table(self, print_table_dict):
@@ -578,7 +581,6 @@ class PrologKernelBaseImplementation:
 
         display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$')}, 'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
-        return True
 
 
     def handle_print_graph(self, graph_file_content):
@@ -631,12 +633,16 @@ class PrologKernelBaseImplementation:
             },
             'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
-        return True
 
 
     def handle_set_prolog_impl(self, prolog_impl_id):
         """The user requested to change the active Prolog implementation, which needs to be handled by the kernel."""
         return self.kernel.change_prolog_implementation(prolog_impl_id)
+
+
+    def handle_completion_data_update(self, predicate_atoms):
+        """The user requested to update the predicate data used for code completion."""
+        self.current_predicates = predicate_atoms
 
 
     def send_response_display_data(self, text, additional_style=""):

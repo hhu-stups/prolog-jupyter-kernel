@@ -215,16 +215,6 @@ dispatch_request(version, Message, _Stack, continue) :-
   atom_codes(VersionAtom, VersionCodes),
   jsonrpc:send_success_reply(CallRequestId, VersionAtom).
 :- endif.
-dispatch_request(predicates, Message, _Stack, continue) :-
-  Message = request(_Method,CallRequestId,_Params,_RPC),
-  !,
-  % Find all callable (built-in and exported) predicates and send them to the client
-  findall(Pred, generate_built_in_pred(Pred), BuiltInPreds),
-  findall(Pred, generate_exported_pred(Pred), ExportedPreds),
-  append(ExportedPreds, BuiltInPreds, CurrentPreds),
-  % convert the predicates into atoms so that they are JSON parsable
-  findall(PredAtom, (member(CurPred, CurrentPreds), predicate_atom(CurPred, PredAtom)), PredAtoms),
-  jsonrpc:send_success_reply(CallRequestId, PredAtoms).
 dispatch_request(jupyter_predicate_docs, Message, _Stack, continue) :-
   % Retrieve the docs of the predicates in the module jupyter and send them to the client
   Message = request(_Method,CallRequestId,_Params,_RPC),
@@ -248,47 +238,3 @@ handle_parsing_error(ParsingErrorMessageData, CallRequestId) :-
 handle_parsing_error(_ParsingErrorMessageData, CallRequestId) :-
   % Malformed request
   jsonrpc:send_error_reply(CallRequestId, invalid_params, '').
-
-
-% generate_built_in_pred(-PredicateHead)
-:- if(swi).
-generate_built_in_pred(Head) :-
-  predicate_property(system:Head, built_in),
-  functor(Head, Name, _Arity),
-  % Exclude reserved names
-  \+ sub_atom(Name, 0, _, _, $).
-:- else.
-generate_built_in_pred(Head) :-
-  predicate_property(Head, built_in),
-  functor(Head, Name, _Arity),
-  % Exclude the 255 call predicates
-  Name \= call.
-generate_built_in_pred(call(_)).
-:- endif.
-
-
-% generate_exported_pred(-ModuleNameExpandedPredicateHead)
-generate_exported_pred(Module:Pred) :-
-  ServerModules = [jsonrpc, logging, output, request_handling, sicstus_jsonrpc_server, variable_bindings, term_handling],
-  predicate_property(Module:Pred, exported),
-  % Exclude exported predicates from any of the modules used for this server except for 'jupyter'
-  \+ member(Module, ServerModules).
-
-
-% predicate_atom(+Predicate, -PredicateAtom)
-%
-% PredicateAtom is an atom created from Predicate by replacing all variables in it with atoms starting from 'A'.
-predicate_atom(Predicate, PredicateAtom) :-
-  % Create a Name=Var pairs list as can be used for write_term_to_codes/3
-  term_variables(Predicate, Variables),
-  name_var_pairs(Variables, 65, Bindings), % 65 is the ASCII code for 'A'
-  write_term_to_codes(Predicate, PredicateCodes, [variable_names(Bindings)]),
-  atom_codes(PredicateAtom, PredicateCodes).
-
-
-% name_var_pairs(+Variables, +CurrentCharacterCode, -Bindings)
-name_var_pairs([], _CurrentCharacterCode, []) :- !.
-name_var_pairs([Variable|Variables], CurrentCharacterCode, [NameAtom=Variable|Bindings]) :-
-  atom_codes(NameAtom, [CurrentCharacterCode]),
-  NextCharacterCode is CurrentCharacterCode + 1,
-  name_var_pairs(Variables, NextCharacterCode, Bindings).

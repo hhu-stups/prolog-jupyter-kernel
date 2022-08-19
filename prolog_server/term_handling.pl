@@ -395,6 +395,8 @@ handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, 
   handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
 handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
+handle_query_term_(jupyter:update_completion_data, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_update_completion_data.
 % run_tests
 handle_query_term_(run_tests, _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests, CallRequestId, Stack, Bindings, Cont).
@@ -1306,6 +1308,69 @@ handle_set_prolog_impl(PrologImplementationID) :-
   assert_success_response(query, [], '', [set_prolog_impl_id=PrologImplementationID]).
 handle_set_prolog_impl(_PrologImplementationID) :-
   assert_error_response(exception, message_data(error, jupyter(prolog_impl_id_no_atom)), '', []).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Reload the completion data
+
+% The user requested to reload the data used for code completion.
+% Finds all callable (built-in and exported) predicates.
+% The client expects these to be part of the result as 'predicate_atoms'.
+
+
+handle_update_completion_data :-
+  % Find all callable (built-in and exported) predicates and send them to the client
+  findall(Pred, generate_built_in_pred(Pred), BuiltInPreds),
+  findall(Pred, generate_exported_pred(Pred), ExportedPreds),
+  append(ExportedPreds, BuiltInPreds, CurrentPreds),
+  % convert the predicates into atoms so that they are JSON parsable
+  findall(PredAtom, (member(CurPred, CurrentPreds), predicate_atom(CurPred, PredAtom)), PredAtoms),
+  assert_success_response(query, [], '', [predicate_atoms=PredAtoms]).
+
+
+% generate_built_in_pred(-PredicateHead)
+:- if(swi).
+generate_built_in_pred(Head) :-
+  predicate_property(system:Head, built_in),
+  functor(Head, Name, _Arity),
+  % Exclude reserved names
+  \+ sub_atom(Name, 0, _, _, $).
+:- else.
+generate_built_in_pred(Head) :-
+  predicate_property(Head, built_in),
+  functor(Head, Name, _Arity),
+  % Exclude the 255 call predicates
+  Name \= call.
+generate_built_in_pred(call(_)).
+:- endif.
+
+
+% generate_exported_pred(-ModuleNameExpandedPredicateHead)
+generate_exported_pred(Module:Pred) :-
+  ServerModules = [jsonrpc, logging, output, request_handling, sicstus_jsonrpc_server, variable_bindings, term_handling],
+  predicate_property(Module:Pred, exported),
+  % Exclude exported predicates from any of the modules used for this server except for 'jupyter'
+  \+ member(Module, ServerModules).
+
+
+% predicate_atom(+Predicate, -PredicateAtom)
+%
+% PredicateAtom is an atom created from Predicate by replacing all variables in it with atoms starting from 'A'.
+predicate_atom(Predicate, PredicateAtom) :-
+  % Create a Name=Var pairs list as can be used for write_term_to_codes/3
+  term_variables(Predicate, Variables),
+  name_var_pairs(Variables, 65, Bindings), % 65 is the ASCII code for 'A'
+  write_term_to_codes(Predicate, PredicateCodes, [variable_names(Bindings)]),
+  atom_codes(PredicateAtom, PredicateCodes).
+
+
+% name_var_pairs(+Variables, +CurrentCharacterCode, -Bindings)
+name_var_pairs([], _CurrentCharacterCode, []) :- !.
+name_var_pairs([Variable|Variables], CurrentCharacterCode, [NameAtom=Variable|Bindings]) :-
+  atom_codes(NameAtom, [CurrentCharacterCode]),
+  NextCharacterCode is CurrentCharacterCode + 1,
+  name_var_pairs(Variables, NextCharacterCode, Bindings).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

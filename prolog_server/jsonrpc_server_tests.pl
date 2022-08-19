@@ -131,6 +131,15 @@ check_equality(Result, ExpectedResult) :-
   fail.
 
 
+% check_equality(+Term1, +Term2)
+check_inequality(Term1, Term2) :-
+  Term1 \== Term2,
+  !.
+check_inequality(Term1, Term1) :-
+  print_message(error, server_tests(expected_inequality(Term1))),
+  fail.
+
+
 :- if(swi).
 :- multifile prolog:message/3.
 prolog:message(server_tests(ServerTestsMessageTerm)) --> !,
@@ -142,13 +151,8 @@ user:generate_message_hook(server_tests(ServerTestsMessageTerm)) --> !,
 :- endif.
 
 
-server_tests_message(server_not_running) --> !,
-  ['The jsonrpc server is not running'-[]], [nl].
-server_tests_message(expected_success_reply(Code, Reply)) --> !,
-  ['    Expected success reply for ~q'-[Code]], [nl],
-  ['    Got:      ~q'-[Reply]], [nl].
-server_tests_message(expected_success_result(Code, Result)) --> !,
-  ['    Expected a single success result for ~q'-[Code]], [nl],
+server_tests_message(expected_equality(Result, ExpectedResult)) --> !,
+  ['    Expected: ~q'-[ExpectedResult]], [nl],
   ['    Got:      ~q'-[Result]], [nl].
 server_tests_message(expected_error_result(Code, Result)) --> !,
   ['    Expected a single error result for ~q'-[Code]], [nl],
@@ -156,9 +160,16 @@ server_tests_message(expected_error_result(Code, Result)) --> !,
 server_tests_message(expected_failure_reply(Code, Reply)) --> !,
   ['    Expected failure reply for ~q'-[Code]], [nl],
   ['    Got:      ~q'-[Reply]], [nl].
-server_tests_message(expected_equality(Result, ExpectedResult)) --> !,
-  ['    Expected: ~q'-[ExpectedResult]], [nl],
+server_tests_message(expected_inequality(Term)) --> !,
+  ['    Expected terms not to be equal: ~q'-[Term]], [nl].
+server_tests_message(expected_success_reply(Code, Reply)) --> !,
+  ['    Expected success reply for ~q'-[Code]], [nl],
+  ['    Got:      ~q'-[Reply]], [nl].
+server_tests_message(expected_success_result(Code, Result)) --> !,
+  ['    Expected a single success result for ~q'-[Code]], [nl],
   ['    Got:      ~q'-[Result]], [nl].
+server_tests_message(server_not_running) --> !,
+  ['The jsonrpc server is not running'-[]], [nl].
 
 
 :- discontiguous
@@ -234,15 +245,12 @@ test(jupyter_halt, [true(Result = ExpectedResult)]) :-
 test(dialect) :-
   send_success_request(dialect, '', 1, _Result).
 
-test(predicates) :-
-  send_success_request(predicates, '', 2, _Result).
-
 test(jupyter_predicate_docs) :-
-  send_success_request(jupyter_predicate_docs, '', 3, _Result).
+  send_success_request(jupyter_predicate_docs, '', 2, _Result).
 
 :- if(sicstus).
 test(version) :-
-  send_success_request(version, '', 4, _Result).
+  send_success_request(version, '', 3, _Result).
 :- endif.
 
 :- end_tests(special_methods).
@@ -1631,6 +1639,37 @@ test(set_prolog_impl_success, [true(Result = ExpectedResult)]) :-
   send_call_with_single_success_result(Request, 3, Result).
 
 :- end_tests(set_prolog_impl).
+
+
+:- if(swi).
+expected_prolog_message_subterm(update_completion_data_no_single_goal, 0, 75, 'ERROR: jupyter:update_completion_data/0 needs to be the only goal in a term').
+:- else.
+expected_prolog_message_subterm(update_completion_data_no_single_goal, 0, 70, '! jupyter:update_completion_data/0 needs to be the only goal in a term').
+:- endif.
+
+
+:- begin_tests(update_completion_data, [setup((start_process)), cleanup(release_process(true))]).
+
+test(update_completion_data_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(update_completion_data_no_single_goal, 'jupyter:update_completion_data, print(exception).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
+test(update_completion_data_success, [true(NewResult = NewExpectedResult)]) :-
+  UpdateRequest = 'jupyter:update_completion_data.',
+  ExpectedResult = [type=query,bindings=json([]),output='',predicate_atoms=PredicateAtoms],
+  send_call_with_single_success_result(UpdateRequest, 2, Result),
+  check_equality(Result, ExpectedResult),
+  % Load the clpfd library defining the operators
+  LoadRequest = 'use_module(library(clpfd)).',
+  ExpectedLoadResult = [type=query,bindings=json([]),output=_LoadOutput],
+  send_call_with_single_success_result(LoadRequest, 3, LoadResult),
+  check_equality(LoadResult, ExpectedLoadResult),
+  % Ater loading the clpfd library, the predicate atoms are not the same as before
+  NewExpectedResult = [type=query,bindings=json([]),output='',predicate_atoms=NewPredicateAtoms],
+  send_call_with_single_success_result(UpdateRequest, 4, NewResult),
+  check_equality(NewResult, NewExpectedResult),
+  check_inequality(PredicateAtoms, NewPredicateAtoms).
+
+:- end_tests(update_completion_data).
 
 
 :- begin_tests(help, [setup((start_process)), cleanup(release_process(true))]).

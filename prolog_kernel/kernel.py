@@ -267,6 +267,13 @@ class PrologKernel(Kernel):
 
 
     def change_prolog_implementation(self, prolog_impl_id):
+        """
+        Change the Prolog implementation to the one with ID prolog_impl_id.
+        If there is a running server for that implementation, it is activated.
+        Otherwise, a new one is started.
+        Returns True if something goes wrong and the new implementation cannot be used.
+        """
+
         self.logger.debug('Change Prolog implementation to ' + str(prolog_impl_id))
 
         if prolog_impl_id in self.active_kernel_implementations:
@@ -274,7 +281,6 @@ class PrologKernel(Kernel):
             # Make it the active one
             self.implementation_id = prolog_impl_id
             self.active_kernel_implementation = self.active_kernel_implementations[self.implementation_id]
-            return True
         else:
             # Try to load the implementation specific data
             load_exception_message = self.load_implementation_data(prolog_impl_id)
@@ -292,12 +298,11 @@ class PrologKernel(Kernel):
                     },
                     'metadata': {}}
                 self.send_response(self.iopub_socket, 'display_data', display_data)
-                return False
+                return True
             else:
                 self.implementation_id = prolog_impl_id
                 # Create an implementation object which starts the Prolog server
                 self.load_kernel_implementation()
-                return True
 
 
     def interrupt_all(self):
