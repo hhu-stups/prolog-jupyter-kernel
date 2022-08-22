@@ -965,6 +965,9 @@ assert_sld_data(_Port, _MGoal, _Current, _Parent) :-
   collect_sld_data. % SLD data is to be colleted, but not for ports other than call
 
 
+% TODO Fix for SICStus
+
+
 % handle_print_sld_tree(+Goal, +Bindings)
 handle_print_sld_tree(Goal, Bindings) :-
   % Assert collect_sld_data/0 so that SLD data is collected during tracing (needed for SWI-Prolog)

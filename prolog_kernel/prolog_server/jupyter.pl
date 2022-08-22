@@ -5,12 +5,20 @@
 
 
 :- module(jupyter,
-    [print_table/1,             % print_table(+Goal)
-     print_table/2,             % print_table(+ValuesLists, +VariableNames)
-     trace/1,                   % trace(+Goal)
-     print_variable_bindings/0,
+    [cut/0,
+     halt/0,
+     help/0,
      previous_query_time/2,     % previous_query_time(-Goal, -Runtime)
-     print_previous_queries/1   % print_previous_queries(+Ids)
+     print_previous_queries/1,  % print_previous_queries(+Ids)
+     print_sld_tree/1,          % print_sld_tree(+Goal)
+     print_table/1,             % print_table(+Goal)
+     print_table/2,             % print_table(+ValuesLists, +VariableNames)
+     print_transition_graph/4,  % print_transition_graph(+PredSpec, +FromIndex, +ToIndex, +LabelIndex)
+     print_variable_bindings/0,
+     retry/0,
+     set_prolog_impl/1,         % set_prolog_impl(+PrologImplementationID)
+     trace/1,                   % trace(+Goal)
+     update_completion_data/0
     ]).
 
 
@@ -47,7 +55,7 @@ user:cut :-
   throw(jupyter(no_single_goal(jupyter:cut/0))).
 
 
-% jupyter:print_sld_tree(+PrologImplementationID)
+% jupyter:set_prolog_impl(+PrologImplementationID)
 jupyter:set_prolog_impl(_PrologImplementationID) :-
   throw(jupyter(no_single_goal(jupyter:set_prolog_impl/1))).
 
@@ -66,7 +74,7 @@ jupyter:print_table(_ValuesLists, _VariableNames) :-
   throw(jupyter(no_single_goal(jupyter:print_table/2))).
 
 
-% jupyter:print_sld_tree(+PredSpec, +FromIndex, +ToIndex, +LabelIndex)
+% jupyter:print_transition_graph(+PredSpec, +FromIndex, +ToIndex, +LabelIndex)
 jupyter:print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex) :-
   throw(jupyter(no_single_goal(jupyter:print_transition_graph/4))).
 
@@ -186,7 +194,7 @@ predicate_doc('jupyter:print_transition_graph/4', Doc) :-
     '\n    If LabelIndex=0, no label is shown.',
     '\n\n    Needs to be the only goal of a query.'
   ], Doc).
-predicate_doc('jupyter:print_variable_bindings', Doc) :-
+predicate_doc('jupyter:print_variable_bindings/0', Doc) :-
   atom_concat([
     'jupyter:print_variable_bindings',
     '\n\n    Prints variable bindings from previous queries.',

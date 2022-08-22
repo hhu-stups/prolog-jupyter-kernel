@@ -13,6 +13,7 @@ c.PrologKernel.implementation_id = "sicstus"
 ## - "error_prefix": The prefix output for error messages
 ## - "informational_prefix": The prefix output for informational messages
 ## - "program_arguments": The command line arguments with which the Prolog server can be started
+##                        If this differs from the default value, an absolute path or one relative to the location of the Jupyter notebook needs to be provided
 ## Additionally, a "kernel_implementation_path" (which needs to be absolute) can be provided.
 ## The corresponding module needs to define a class PrologKernelImplementation as a subclass of PrologKernelBaseImplementation.
 ## It can be used to override the kernel's behavior.
@@ -24,7 +25,7 @@ c.PrologKernel.implementation_id = "sicstus"
 #        "error_prefix": "ERROR: ",
 #        "informational_prefix": "% ",
 #        "program_arguments": ["swipl",
-#                              "-l", "../prolog_server/jsonrpc_server.pl",
+#                              "-l", "prolog_server/jsonrpc_server.pl",
 #                              "-t", "jsonrpc_server_start"]
 #    },
 #    "sicstus": {
@@ -33,11 +34,13 @@ c.PrologKernel.implementation_id = "sicstus"
 #        "error_prefix": "! ",
 #        "informational_prefix": "% ",
 #        "program_arguments": ["sicstus",
-#                              "-l", "../prolog_server/jsonrpc_server.pl",
+#                              "-l", "prolog_server/jsonrpc_server.pl",
 #                              "--goal", "jsonrpc_server_start;halt.",
 #                              "--nologo"]
 #    }
 # }
+
+# The following shows the usage of the relative path to the Prolog server code
 c.PrologKernel.implementation_data = {
    "swi": {
        "failure_response": "false",
@@ -45,7 +48,7 @@ c.PrologKernel.implementation_data = {
        "error_prefix": "ERROR: ",
        "informational_prefix": "% ",
        "program_arguments": ["swipl",
-                             "-l", "../../prolog_server/jsonrpc_server.pl",
+                             "-l", "../../prolog_kernel/prolog_server/jsonrpc_server.pl",
                              "-t", "jsonrpc_server_start"]
    },
    "sicstus": {
@@ -54,7 +57,7 @@ c.PrologKernel.implementation_data = {
        "error_prefix": "! ",
        "informational_prefix": "% ",
        "program_arguments": ["sicstus",
-                             "-l", "../../prolog_server/jsonrpc_server.pl",
+                             "-l", "../../prolog_kernel/prolog_server/jsonrpc_server.pl",
                              "--goal", "jsonrpc_server_start;halt.",
                              "--nologo"]
    }

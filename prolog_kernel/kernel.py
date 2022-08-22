@@ -70,6 +70,17 @@ class PrologKernel(Kernel):
     # It is required that the implementation_data dictionary contains an item with this key.
     implementation_id = Unicode('swi').tag(config=True)
 
+    # The default program argutments are needed to check if they were overriden in a configuration file or if the default Prolog server code is to be used
+    default_program_arguments = {
+        "swi": ["swipl",
+                "-l", "prolog_server/jsonrpc_server.pl",
+                "-t", "jsonrpc_server_start"],
+        "sicstus": ["sicstus",
+                    "-l", "prolog_server/jsonrpc_server.pl",
+                    "--goal", "jsonrpc_server_start;halt.",
+                    "--nologo"]
+    }
+
     # The implementation specific data which is needed to run the Prolog server for code execution.
     # This needs to be a dictionary which needs to at least contain an entry for the configured implementation_id.
     # Each entry needs to define values for
@@ -78,6 +89,7 @@ class PrologKernel(Kernel):
     # - "error_prefix": The prefix output for error messages
     # - "informational_prefix": The prefix output for informational messages
     # - "program_arguments": The command line arguments with which the Prolog server can be started
+    #                        If this differs from the default value, an absolute path or one relative to the location of the Jupyter notebook needs to be provided
     # Additionally, a "kernel_implementation_path" (which needs to be absolute) can be provided.
     # The corresponding module needs to define a class PrologKernelImplementation as a subclass of PrologKernelBaseImplementation.
     # It can be used to override the kernel's behavior.
@@ -87,19 +99,14 @@ class PrologKernel(Kernel):
             "success_response": "true",
             "error_prefix": "ERROR: ",
             "informational_prefix": "% ",
-            "program_arguments": ["swipl",
-                                 "-l", "../prolog_server/jsonrpc_server.pl",
-                                 "-t", "jsonrpc_server_start"]
+            "program_arguments": default_program_arguments["swi"]
         },
         "sicstus": {
             "failure_response": "no",
             "success_response": "yes",
             "error_prefix": "! ",
             "informational_prefix": "% ",
-            "program_arguments": ["sicstus",
-                                 "-l", "../prolog_server/jsonrpc_server.pl",
-                                 "--goal", "jsonrpc_server_start;halt.",
-                                 "--nologo"]
+            "program_arguments": default_program_arguments["sicstus"]
         }
     }).tag(config=True)
 
@@ -157,7 +164,8 @@ class PrologKernel(Kernel):
         existing_file_paths.reverse()
 
         if not existing_file_paths:
-            self.logger.warning("No " + config_file_name + " file found in one of these paths: " + str(config_paths))
+            self.logger.debug("No " + config_file_name + " file found in one of these paths: " + str(config_paths))
+            self.logger.debug("Using the default configuration")
             return
 
         # For all paths, load the config file and upadte the configuration

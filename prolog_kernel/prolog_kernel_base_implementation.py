@@ -9,6 +9,7 @@ For further information, see 'kernel.py'.
 
 
 import json
+import os
 import subprocess
 
 from graphviz import render
@@ -16,6 +17,9 @@ from IPython.core.completer import CompletionSplitter
 from IPython.utils.tokenutil import line_at_cursor
 from os import remove
 from signal import signal, SIGINT
+
+
+path = os.path.dirname(__file__)
 
 
 class PrologKernelBaseImplementation:
@@ -48,11 +52,30 @@ class PrologKernelBaseImplementation:
 
     def start_prolog_server(self):
         """Tries to (re)start the prolog server process."""
+        # Get the current working directory so that it can be reset to the previous value if it has to be changed
+        previous_cwd = os.getcwd()
+        current_cwd = previous_cwd
+
+        # Check if the program arguments to start the Prolog server with were overriden in a configuration file
+        program_arguments = self.implementation_data["program_arguments"]
+        if program_arguments == self.kernel.default_program_arguments[self.implementation_id]:
+            # The default Prolog server code is to be used
+            # The default configuration contains the path to the server code relative to the directory this file is located in
+            # Set the current working directory to this location
+            os.chdir(path)
+            current_cwd = path
+        # Otherwise, the path needs to be absolute or relative to the current working directory
+
+        # Log the program arguments and the directory from which the program is tried to be started
+        self.logger.debug('Trying to start the Prolog server from ' + str(current_cwd) + ' with arguments: ' + str(program_arguments))
+
+        # Kill the running Prolog server
         self.kill_prolog_server()
         self.prolog_proc = None
+
         # Start the Prolog server
         self.prolog_proc = subprocess.Popen(
-            self.implementation_data["program_arguments"],
+            program_arguments,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -61,12 +84,17 @@ class PrologKernelBaseImplementation:
 
         # Test if the server was started correctly by requesting the dialect Prolog flag
         try:
+            # In case of SICStus Prolog, if the implementation is started with a file which does not exist, no response can be read
+            # The kernel cannot stop from trying to read a response and therfore cannot output an error message
             dialect_response_dict = self.server_request(0, 'dialect', log_response=False)
             self.logger.debug("Started the Prolog server for dialect '" + dialect_response_dict["result"] + "'")
-
             self.is_server_restart_required = False
+            # TODO in this case, no files can be loaded
         except Exception as exception:
-            raise Exception("The Prolog server could not be started with the arguments " + str(self.implementation_data["program_arguments"]))
+            raise Exception("The Prolog server could not be started with the arguments " + str(program_arguments))
+        finally:
+            # Reset the current working directory to the previous value
+            os.chdir(previous_cwd)
 
 
     def handle_signal_interrupt(self, signal_received, frame):
@@ -269,7 +297,7 @@ class PrologKernelBaseImplementation:
         try:
             return json.loads(response_string)
         except json.decoder.JSONDecodeError as exception:
-            self.logger.debug('The Response object is no valid JSON object')
+            self.logger.debug('The Response object is no valid JSON object: ' + str(response_string))
             raise
 
 

@@ -6,7 +6,6 @@ A [Jupyter](https://jupyter.org/) kernel for Prolog based on the [IPython kernel
 By default, [SICStus Prolog](https://sicstus.sics.se/) and [SWI-Prolog](https://www.swi-prolog.org/) (which is the actual default) are supported. The kernel is implemented in a way that basically all functionality except the loading of configuration files can easily be overriden. This is especially useful for extending the kernel for further Prolog implementations or running code with a different version of an implementation. For further information about this, see [Configuration](#configuration).
 
 **Note:** The project is still under development and so far, only a [development installation](#development-install) is possible.
-Furthermore, the usage of the kernel is limited. In order to execute Prolog code, the Jupyter kernel needs to communicate with a Prolog server, the code of which can be found in the directory [prolog_server](./prolog_server). By default, the kernel expects this folder to be in the same directory as the folder which contains the Jupyter notebook. Unless configured differently, if this is not the case, no code can be executed.
 
 
 ## Requirements
@@ -23,12 +22,13 @@ Furthermore, the usage of the kernel is limited. In order to execute Prolog code
   - Tested with version 8.4.3 of SWI-Prolog and SICStus 4.5.1
 
 
-## Development Install
+## Install
 
-1. `git clone https://github.com/anbre/prolog-jupyter-kernel.git`
-2. Change to the root directory of the repository
-3. `pip install .`
-4. Install the kernel specification directory:
+**TODO:** so far, only exists on TestPyPI
+
+1. Download the kernel:
+  `python -m pip install prolog_kernel`
+2. Install the kernel specification directory:
     - `python -m prolog_kernel.install`
     - There are the following options which can be seen when running `python -m prolog_kernel.install -h`
       - `--user`: install to the per-user kernel registry (default if not root and no prefix is specified)
@@ -37,10 +37,8 @@ Furthermore, the usage of the kernel is limited. In order to execute Prolog code
 
 
 ## Uninstall
-
-1. Change to the root directory of the repository
-2. `pip uninstall prolog_kernel`
-3. `jupyter kernelspec remove prolog_kernel`
+1. `pip uninstall prolog_kernel`
+2. `jupyter kernelspec remove prolog_kernel`
 
 
 ## Usage
@@ -68,10 +66,16 @@ In general, the kernel can be configured to use a different Prolog implementatio
     - `error_prefix`: The prefix that is output for error messages
     - `informational_prefix`: The prefix that is output for informational messages
     - `program_arguments`: Command line arguments with which the Prolog server can be started
+       If this differs from the default value, an absolute path or one relative to the location of the Jupyter notebook needs to be provided
   - Additionally, a `kernel_implementation_path` (which needs to be absolute) can be provided:
     - The corresponding module needs to define a class `PrologKernelImplementation` as a subclass of `PrologKernelBaseImplementation`, which can be used to override the kernel's behavior (see [Overriding the Kernel Implementation](#overriding-the-kernel-implementation)).
 
 In addition to configuring the Prolog implementation to be used, the Prolog server implements the predicate `jupyter:set_prolog_impl(+PrologImplementationID)` with which the implementation can be changed. In order for this to work, the configured `implementation_data` dictionary needs to contain data for more than one Prolog implementation.
+
+
+**Troubleshooting:**
+If the `program_arguments` provided for SICStus Prolog are invalid (e.g. the Prolog code file does not exist), the kernel waits for a response from the server which it will never receieve. In that state it is not able to log any exception and instead, nothing happens.
+To facilitate finding the cause of the error, before trying to start the Prolog server, the arguments and the directory from which they are tried to be executed are logged.
 
 
 ### Overriding the Kernel Implementation
@@ -79,3 +83,29 @@ In addition to configuring the Prolog implementation to be used, the Prolog serv
 The actual kernel code is not implemented by the kernel class itself. Instead, there is the file [prolog_kernel_base_implementation.py](./prolog_kernel/prolog_kernel_base_implementation.py) which defines the class `PrologKernelBaseImplementation`. When the kernel is started, a (sub)object of this class is created. It handles the starting of and communication with the Prolog server. For all requests (execution, shutdown, completion, inspection) the kernel receives, a `PrologKernelBaseImplementation` method is called. By creating a subclass of this and defining the path to it as `kernel_implementation_path`, the actual implementation code can be replaced.
 
 If no such path is defined, the path itself or the defined class is invalid, a default implementation is used instead. In case of SWI- and SICStus Prolog, the files [swi_kernel_implementation.py](./prolog_kernel/swi_kernel_implementation.py) and [sicstus_kernel_implementation.py](./prolog_kernel/sicstus_kernel_implementation.py) are used. Otherwise, the base implementation from the file [prolog_kernel_base_implementation.py](./prolog_kernel/prolog_kernel_base_implementation.py) is loaded.
+
+
+## Development
+
+### Development Install
+
+1. `git clone https://github.com/anbre/prolog-jupyter-kernel.git`
+2. Change to the root directory of the repository
+3. `pip install .`
+4. Install the kernel specification directory:
+    - `python -m prolog_kernel.install`
+    - For available installation options, see [Install](#install)
+
+
+### Upload to PyPI
+
+This kernel is available as a Python package on the [Python Package Index](https://pypi.org/). A new version of the package can be published in the following way:
+1. Install the requirements build and twine:
+  `pip install build twine`
+2. Increase the version in [pyproject.toml](./pyproject.toml)
+3. Create the distribution files:
+  `python -m build`
+4. Upload the package to PyPI:
+  `twine upload dist/*`
+
+For further information, see the [Packaging Python Projects Tutorial](https://packaging.python.org/en/latest/tutorials/packaging-projects/).

@@ -9,7 +9,7 @@ def get_kernelspec_dir_path():
     These include the kernel.json and kernel.js files.
     """
     dirname = os.path.dirname(__file__)
-    kernelspec_dir_path = os.path.join(dirname, '..', 'kernelspec')
+    kernelspec_dir_path = os.path.join(dirname, 'kernelspec')
     return kernelspec_dir_path
 
 def _is_root():
