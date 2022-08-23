@@ -6,4 +6,4 @@ dist
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-.prolog_server_log
+.prolog_server_log*

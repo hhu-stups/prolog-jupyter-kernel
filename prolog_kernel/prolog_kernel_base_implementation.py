@@ -64,6 +64,7 @@ class PrologKernelBaseImplementation:
             # Set the current working directory to this location
             os.chdir(path)
             current_cwd = path
+            # TODO in this case, no files can be loaded (but works if the same path is given as an absolute path?!)
         # Otherwise, the path needs to be absolute or relative to the current working directory
 
         # Log the program arguments and the directory from which the program is tried to be started
@@ -78,24 +79,25 @@ class PrologKernelBaseImplementation:
             program_arguments,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             encoding='UTF-8'
         )
 
         # Test if the server was started correctly by requesting the dialect Prolog flag
         try:
             # In case of SICStus Prolog, if the implementation is started with a file which does not exist, no response can be read
-            # The kernel cannot stop from trying to read a response and therfore cannot output an error message
+            # The kernel cannot stop from trying to read a response and therefore cannot output an error message
             dialect_response_dict = self.server_request(0, 'dialect', log_response=False)
             self.logger.debug("Started the Prolog server for dialect '" + dialect_response_dict["result"] + "'")
             self.is_server_restart_required = False
-            # TODO in this case, no files can be loaded
         except Exception as exception:
             raise Exception("The Prolog server could not be started with the arguments " + str(program_arguments))
         finally:
             # Reset the current working directory to the previous value
             os.chdir(previous_cwd)
 
+        # TODO configure logging?
+        
 
     def handle_signal_interrupt(self, signal_received, frame):
         self.handle_interrupt()
@@ -579,7 +581,7 @@ class PrologKernelBaseImplementation:
           "print_table((member(Member, [10,20,30]), Square is Member*Member))."
         the variables dictionary is:
           {'ValuesLists': [['10', '100'], ['20', '400'], ['30', '900']], 'VariableNames': ['Member', 'Square']}
-        The markdown text send to the frontend is:
+        The markdown text sent to the frontend is:
           Member | Square |
           :- | :- |
           10 | 100 |
@@ -607,7 +609,7 @@ class PrologKernelBaseImplementation:
 
             table_markdown_string = table_markdown_string + "\n" + line_markdown_string
 
-        display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$')}, 'metadata': {}}
+        display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$').replace('~', '\~')}, 'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
 
 
@@ -647,6 +649,7 @@ class PrologKernelBaseImplementation:
         # Read the svg file content
         svg_file = open("graph.svg", "r")
         svg_content = svg_file.read()
+        svg_file.close()
 
         # Remove the created files
         remove("graph.gv")

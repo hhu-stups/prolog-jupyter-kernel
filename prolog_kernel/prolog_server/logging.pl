@@ -24,11 +24,16 @@ logging(true).
 
 create_log_file :-
   logging(true),
-  !,
   % Open a log file (logging to stdout would send the messages to the client)
-  open('.prolog_server_log', write, Stream),
+  % On Windows platforms, opening a file with SICStus which is alread opened by another process (i.e. another Prolog server) fails
+  % Therefore separate log files are created for each Prolog implementation
+  catch(current_prolog_flag(dialect, Dialect), _, Dialect = ''),
+  atom_concat('.prolog_server_log_', Dialect, LogFileName),
+  catch(open(LogFileName, write, Stream), _Exception, fail),
+  !,
   assert(log_stream(Stream)).
 create_log_file.
+% Logging not configured or no new log file could be opened
 
 
 log(List) :-
@@ -40,9 +45,10 @@ log(Term) :-
 
 log(Control, Arguments) :-
   logging(true),
-  !,
   % Write to the log file
   log_stream(Stream),
+  !,
   format(Stream, Control, Arguments),
   flush_output(Stream).
 log(_Control, _Arguments).
+% Logging not configured or no new log file could be opened

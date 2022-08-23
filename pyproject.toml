@@ -2,16 +2,16 @@
 build-backend = "setuptools.build_meta"
 requires = [
   "setuptools>=61.0",
-		"jupyter_client",
-		"IPython",
-		"ipykernel",
-		"graphviz",
-    "beautifulsoup4",
+  "jupyter_client",
+  "IPython",
+  "ipykernel",
+  "graphviz",
+  "beautifulsoup4",
 ]
 
 [project]
 name = "prolog_kernel"
-version = "0.0.6"
+version = "0.0.8"
 authors = [ { name="Anne Brecklinghaus" } ]
 description = "Extensible Jupyter kernel for (SWI- and SICStus) Prolog"
 readme = "README.md"

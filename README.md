@@ -20,6 +20,8 @@ By default, [SICStus Prolog](https://sicstus.sics.se/) and [SWI-Prolog](https://
 - A Prolog installation for the configured implementation
   - In order to use the default configuration, SWI-Prolog is needed and needs to be on the PATH
   - Tested with version 8.4.3 of SWI-Prolog and SICStus 4.5.1
+- For Windows, installing graphviz with pip does not suffice
+  - Instead, it can be installed from [here](https://graphviz.org/download/) and added to the PATH (a reboot is required afterwards)
 
 
 ## Install
