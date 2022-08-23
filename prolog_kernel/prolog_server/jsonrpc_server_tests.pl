@@ -1383,7 +1383,7 @@ test(previous_queries_with_multiple_variables, [true(PrevQueriesResult = Expecte
   check_equality(AppendResult, ExpectedAppendResult),
   % Print the query with id 1
   PrevQueriesRequest = 'jupyter:print_previous_queries([1]).',
-  ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='  X=[1,2,3],Y=[4,5,6],append(X,Y,Z).'],
+  ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='X=[1,2,3],Y=[4,5,6],append(X,Y,Z).'],
   send_call_with_single_success_result(PrevQueriesRequest, 2, PrevQueriesResult).
 
 test(previous_queries_with_previous_variable_binding, [true(PrevQueriesResult = ExpectedPrevQueriesResult)]) :-
@@ -1401,7 +1401,7 @@ test(previous_queries_with_previous_variable_binding, [true(PrevQueriesResult = 
   check_equality(PrintResult, ExpectedPrintResult),
   % Print the two previous queries -> '$Member' is replaced by 'Member' and '$X' is not replaced (does not occur in one of the queries which are printed)
   PrevQueriesRequest = 'jupyter:print_previous_queries([4,5]).',
-  ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='  member(Member,[1,2,3]),\n  print(Member),nl,print($X).'],
+  ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='member(Member,[1,2,3]),\nprint(Member),nl,print($X).'],
   send_call_with_single_success_result(PrevQueriesRequest, 6, PrevQueriesResult).
 
 test(previous_queries_with_non_existent_ids, [true(Result = ExpectedResult)]) :-
@@ -1670,6 +1670,40 @@ test(update_completion_data_success, [true(NewResult = NewExpectedResult)]) :-
   check_inequality(PredicateAtoms, NewPredicateAtoms).
 
 :- end_tests(update_completion_data).
+
+
+:- if(swi).
+expected_prolog_message_subterm(print_stack_no_single_goal, 0, 64, 'ERROR: jupyter:print_stack/0 needs to be the only goal in a term').
+:- else.
+expected_prolog_message_subterm(print_stack_no_single_goal, 0, 59, '! jupyter:print_stack/0 needs to be the only goal in a term').
+:- endif.
+
+:- begin_tests(print_stack, [setup((start_process)), cleanup(release_process(true))]).
+
+test(print_stack_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+  error_result_message_subterms(print_stack_no_single_goal, 'jupyter:print_stack, print(exception).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+
+test(no_stack, [true(Result = ExpectedResult)]) :-
+  Request = 'jupyter:print_stack.',
+  ExpectedResult = [type=query,bindings=json([]),output=''],
+  send_call_with_single_success_result(Request, 2, Result).
+
+test(stack_with_retry_and_cut, [true(RetryAndCutResult = ExpectedRetryAndCutResult)]) :-
+  QueryRequest = '?- member(N, [1, 2, 3]). ?- member(L, [a]). ?- jupyter:print_stack',
+  ExpectedQueryResult = json(['1'=json([status=success,type=query,bindings=json(['N'='1']),output='']),
+                              '2'=json([status=success,type=query,bindings=json(['L'=a]),output='']),
+                              '3'=json([status=success,type=query,bindings=json([]),output='->  member(L,[a])\n    member(N,[1,2,3])'])]),
+  send_success_call(QueryRequest, 3, QueryResult),
+  check_equality(QueryResult, ExpectedQueryResult),
+  RetryAndCutRequest = '?- retry. ?- retry. ?- jupyter:print_stack. ?- cut. ?- jupyter:print_stack.',
+  ExpectedRetryAndCutResult = json(['1'=json([status=error,error=json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: member(L,[a])\n'])])]),
+                                    '2'=json([status=success,type=query,bindings=json(['N'='2']),output='% Retrying goal: member(N,[1,2,3])\n']),
+                                    '3'=json([status=success,type=query,bindings=json([]),output='->  member(N,[1,2,3])']),
+                                    '4'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% There is no previous active goal']),
+                                    '5'=json([status=success,type=query,bindings=json([]),output=''])]),
+  send_success_call(RetryAndCutRequest, 4, RetryAndCutResult).
+
+:- end_tests(print_stack).
 
 
 :- begin_tests(help, [setup((start_process)), cleanup(release_process(true))]).

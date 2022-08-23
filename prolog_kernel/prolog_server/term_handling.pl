@@ -18,7 +18,13 @@
 %   - retry or jupyter:retry
 %   - cut or jupyter:cut
 %   - halt or jupyter:halt
-%   - a call of jupyter:print_table/1 or jupyter:print_table/2
+%   - a call of a special jupyter predicate:
+%     - jupyter:print_table/1 or jupyter:print_table/2
+%     - jupyter:print_sld_tree/1
+%     - jupyter:print_transition_graph/4
+%     - jupyter:set_prolog_impl/1
+%     - jupyter:update_completion_data/0
+%     - jupyter:print_stack/0
 %   - a call of run_tests: run_tests/0, run_tests/1 or run_tests/2
 %   - a call of trace: trace/0, trace/1 or trace/2
 %   - a call of leash/1
@@ -397,6 +403,8 @@ handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective
   handle_set_prolog_impl(PrologImplementationID).
 handle_query_term_(jupyter:update_completion_data, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_update_completion_data.
+handle_query_term_(jupyter:print_stack, _IsDirective, CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_print_stack(Stack, CallRequestId).
 % run_tests
 handle_query_term_(run_tests, _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests, CallRequestId, Stack, Bindings, Cont).
@@ -997,11 +1005,11 @@ handle_print_sld_tree(Goal, Bindings) :-
 % call_with_sld_data_collection(+Goal, -Exception -IsFailure)
 call_with_sld_data_collection(Goal, Exception, IsFailure) :-
   module_name_expanded(Goal, MGoal),
-  catch(call_with_failure_handling(MGoal, IsFailure), Exception, notrace).
+  catch(call_with_sld_failure_handling(MGoal, IsFailure), Exception, notrace).
 
 
-% call_with_failure_handling(+Goal, -IsFailure)
-call_with_failure_handling(Goal, IsFailure) :-
+% call_with_sld_failure_handling(+Goal, -IsFailure)
+call_with_sld_failure_handling(Goal, IsFailure) :-
   trace,
   ( call(Goal) ->
     notrace,
@@ -1021,7 +1029,7 @@ call_with_sld_data_collection(Goal, Exception, IsFailure) :-
   % Calling debug/0 makes sure that an informational message is always output which can then be removed
   debug,
   catch(
-    call_with_failure_handling(MGoal, BreakpointConditions, IsFailure),
+    call_with_sld_failure_handling(MGoal, BreakpointConditions, IsFailure),
     Exception,
     % In case of an exception, first turn of tracing so that no more data is asserted
     % Then, remove the created breakpoint
@@ -1029,10 +1037,10 @@ call_with_sld_data_collection(Goal, Exception, IsFailure) :-
   ).
 
 
-% call_with_failure_handling(+Goal, +BreakpointConditions, -IsFailure)
+% call_with_sld_failure_handling(+Goal, +BreakpointConditions, -IsFailure)
 %
 % Adds a breakpoint which collects data, calls the goal and removes the breakpoint.
-call_with_failure_handling(Goal, BreakpointConditions, IsFailure) :-
+call_with_sld_failure_handling(Goal, BreakpointConditions, IsFailure) :-
   add_breakpoint(BreakpointConditions, BID),
   ( call(Goal) ->
     remove_breakpoints([BID]),
@@ -1374,6 +1382,31 @@ name_var_pairs([Variable|Variables], CurrentCharacterCode, [NameAtom=Variable|Bi
   atom_codes(NameAtom, [CurrentCharacterCode]),
   NextCharacterCode is CurrentCharacterCode + 1,
   name_var_pairs(Variables, NextCharacterCode, Bindings).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Print stack
+
+% Prints the stack used for juypter:retry/0 and jupyter:cut/0.
+% The active goal is marked by a preceding '->'.
+
+% handle_print_stack(+Stack, +CallRequestId)
+handle_print_stack(Stack, CallRequestId) :-
+  handle_query(term_handling:print_stack(Stack), false, CallRequestId, Stack, [], _OriginalTermData, cut, _Cont).
+
+
+% print_stack(+Stack)
+print_stack([]) :- !.
+print_stack([Query|Queries]) :-
+  format('->  ~w~n', [Query]),
+  print_stack_(Queries).
+
+% print_stack_(+Stack)
+print_stack_([]) :- !.
+print_stack_([Query|Queries]) :-
+  format('    ~w~n', [Query]),
+  print_stack_(Queries).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
