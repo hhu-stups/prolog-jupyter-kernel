@@ -28,12 +28,14 @@
 %   - a call of run_tests: run_tests/0, run_tests/1 or run_tests/2
 %   - a call of trace: trace/0, trace/1 or trace/2
 %   - a call of leash/1
+%   - a call of abolish/1 or abolish/2(in case of SICStus Prolog)
 %   - any term following ?-
 %   - any other term which is the only one of a request
 
 
 :- module(term_handling,
     [handle_term/6,            % handle_term(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, -Cont)
+     declaration_end/1,        % declaration_end(+LoadFile)
      test_definition_end/1,    % test_definition_end(+LoadFile)
      pred_definition_specs/1,  % pred_definition_specs(PredDefinitionSpecs)
      term_response/1,          % term_response(JsonResponse)
@@ -63,6 +65,8 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
   is_retry/1,               % is_retry(IsRetry)
   test_definition_stream/1, % test_definition_stream(TestDefinitionStream)
                             % TestDefinitionStream is a write stream if the current request contains a begin_tests request.
+  declaration_stream/1,     % declaration_stream(DeclarationStream)
+                            % DeclarationStream is a write stream if the current request contains declaration directives.
   pred_definition_specs/1,  % pred_definition_specs(PredDefinitionSpecs)
                             % PredDefinitionSpecs is a list of PredName/PredArity elements for every predicate which is defined by the current request.
   term_response/1.          % term_response(JsonResponse)
@@ -158,6 +162,12 @@ handle_term(Head, false, _CallRequestId, _Stack, Bindings, continue) :-
 % The runtime of the exeuction and additional query data is not asserted as it is the case for queries.
 % Furthermore, a retry is not possible and a directive's variable bindings are not sent to the client.
 
+% For SICStus, declarations need to be handled specially as they must not appear in a query.
+% Therefore, all declarations of a query are written to a file which is loaded.
+% Thus, all declarations which are to be valid at the same time, need to be defined in a single request.
+% As the declaration file is loaded when all terms of a request have been handled, any clauses which were defined for a predicate for which a declaration was defined, do not exist after the declarations.
+% Therefore, a cell declaring predicate properties cannot contain clauses for the same predicate.
+
 % handle_directive(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, +Cont)
 %
 % begin_tests/1
@@ -174,10 +184,106 @@ handle_directive((:- begin_tests(Unit, Options)), _IsSingleTerm, _CallRequestId,
 handle_directive((:- end_tests(_Unit)), true,_CallRequestId, _Stack,  _Bindings, continue) :- !,
   handle_single_test_directive.
 handle_directive((:- end_tests(Unit)), _IsSingleTerm, _CallRequestId, _Stack, _Bindings, continue) :- !,
-  write_to_test_definition_stream((:- end_tests(Unit)), []).
+  handle_end_tests((:- end_tests(Unit))).
+:- if(sicstus).
+handle_directive((:- Declaration), _IsSingleTerm, _CallRequestId, _Stack, _Bindings, continue) :-
+  functor(Declaration, DeclarationName, DeclarationArity),
+  declaration_name_arity(DeclarationName, DeclarationArity),
+  !,
+  handle_declaration_directive(DeclarationName, (:- Declaration)).
+:- endif.
 % Any other directive
 handle_directive((:- Directive), _IsSingleTerm, CallRequestId, Stack, Bindings, Cont) :- !,
   handle_query_term(Directive, true, CallRequestId, Stack, Bindings, cut, Cont).
+
+
+:- if(sicstus).
+% declaration_name_arity(-Name,-Arity)
+%
+% Name and Arity are the name and arity of any declaration listed by the Predicate Index website: https://sicstus.sics.se/sicstus/docs/4.7.1/html/sicstus.html/Predicate-Index.html
+% Since the begin_tests and end_tests directives are handled differently, they are not listed here.
+declaration_name_arity(attribute, 1).
+declaration_name_arity(block, 1).
+declaration_name_arity(chr_constraint, 1).
+declaration_name_arity(chr_option, 2).
+declaration_name_arity(chr_type, 1).
+declaration_name_arity(discontiguous, 1).
+declaration_name_arity(dynamic, 1).
+declaration_name_arity(include, 1).
+declaration_name_arity(initialization, 1).
+declaration_name_arity(is, 2).
+declaration_name_arity(meta_predicate, 1).
+declaration_name_arity(mode, 1).
+declaration_name_arity(multifile, 1).
+declaration_name_arity(public, 1).
+declaration_name_arity(volatile, 1).
+
+
+:- dynamic jupyter_discontiguous/1.  % jupyter_discontiguous(PredSpec)
+                                     % The predicate with predicate spec PredSpec was declared discontiguous
+                                     % As this predicate property cannot be retrieved with predicate_property (as is the case for SWI), a dynamic predicate needs to be used instead
+
+
+declaration_file_name('jupyter_declaration.pl').
+
+
+% handle_declaration_directive(+DeclarationName, +Declaration)
+handle_declaration_directive(discontiguous, (:- Declaration)) :-
+  Declaration =.. [discontiguous, PredSpec],
+  assert(jupyter_discontiguous(PredSpec)),
+  handle_declaration_directive((:- Declaration)).
+handle_declaration_directive(_DeclarationName, DeclarationDirective) :-
+  handle_declaration_directive(DeclarationDirective).
+
+
+% handle_declaration_directive(+Declaration)
+handle_declaration_directive(DeclarationDirective) :-
+  declaration_stream(DeclarationStream),
+  % Not the first declaration directive -> write to the existing file
+  !,
+  write_term_to_stream(DeclarationDirective, [], DeclarationStream).
+handle_declaration_directive(DeclarationDirective) :-
+  % First declaration directive of the request -> create a new file
+  declaration_file_name(DeclarationFileName),
+  open(DeclarationFileName, write, DeclarationStream),
+  assert(declaration_stream(DeclarationStream)),
+  write_term_to_stream(DeclarationDirective, [], DeclarationStream).
+
+
+% declaration_end(+LoadFile)
+%
+% Closes and retracts the stream to which declaration_directives were written.
+% If LoadFile=true, loads that file.
+declaration_end(LoadFile) :-
+  declaration_stream(DeclarationStream),
+  !,
+  close(DeclarationStream),
+  retractall(declaration_stream(_)),
+  declaration_file_name(DeclarationFileName),
+  % When loading the file, an exception or warning might be output
+  ( LoadFile==true ->
+    % Disable the printing of informational messages so that the messages of the following form are not printed:
+    % "% compiling cwd/jupyter_declaration.pl...""
+    % "% compiled cwd/jupyter_declaration.pl in module user, 0 msec 112 bytes"
+    prolog_flag(informational, PreviousInformationalValue, off),
+    % When loading the file, an exception or warning might be output
+    output:call_with_output_to_file(load_files(DeclarationFileName), Output, ErrorMessageData),
+    % Reset the value of the Prolog flag 'informational'
+    prolog_flag(informational, _, PreviousInformationalValue)
+  ; otherwise ->
+    Output = ''
+  ),
+  delete_file(DeclarationFileName),
+  ( nonvar(ErrorMessageData) ->
+    assert_error_response(exception, message_data(error, ErrorMessageData), Output, [])
+  ; otherwise ->
+    atom_concat(Output, '\n% Loaded the declaration file', OutputWithLoadMessage),
+    assert_success_response(directive, [], OutputWithLoadMessage, [])
+  ).
+declaration_end(_LoadFile).
+:- else.
+declaration_end(_LoadFile).
+:- endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -198,13 +304,13 @@ handle_clause_definition_term((test(Name) :- Body), Bindings) :-
   % If test_definition_stream/1 succeeds, there was a begin_tests directive
   % In that case, this test definition belongs to the unit test and is written to the test definition file
   !,
-  write_to_test_definition_stream((test(Name) :- Body), Bindings, TestDefinitionStream).
+  write_term_to_stream((test(Name) :- Body), Bindings, TestDefinitionStream).
 handle_clause_definition_term((test(Name, Options) :- Body), Bindings) :-
   test_definition_stream(TestDefinitionStream),
   % If test_definition_stream/1 succeeds, there was a begin_tests directive
   % In that case, this test definition belongs to the unit test and is written to the test definition file
   !,
-  write_to_test_definition_stream((test(Name, Options) :- Body), Bindings, TestDefinitionStream).
+  write_term_to_stream((test(Name, Options) :- Body), Bindings, TestDefinitionStream).
 % Any other clause definition
 handle_clause_definition_term(Clause, _Bindings) :-
   handle_clause_definition(Clause).
@@ -237,9 +343,23 @@ clause_head(Head, Head).
 
 
 % retract_previous_clauses(+MPredSpec, -RetractedClauses, -Output)
+retract_previous_clauses(MPredSpec, json([]), AssertMessage) :-
+  % In case the predicate was declared as discontiguous, no previous clauses are retracted
+  discontiguous_pred(MPredSpec),
+  !,
+  current_pred_definition_specs(PredDefinitionSpecs),
+  ( member(MPredSpec, PredDefinitionSpecs) ->
+    % For the current request, clauses have been defined for the given predicate
+    AssertMessage = ''
+  ; compute_assert_message(MPredSpec, AssertMessage),
+    % Update the defined predicate definition specs
+    catch(retractall(pred_definition_specs(_)), _Exception, true),
+    assert(pred_definition_specs([MPredSpec|PredDefinitionSpecs]))
+  ).
 retract_previous_clauses(MPredSpec, RetractedClausesJson, Output) :-
-  retract_definition_specs(PredDefinitionSpecs),
+  current_pred_definition_specs(PredDefinitionSpecs),
   retract_previous_clauses(MPredSpec, PredDefinitionSpecs, NewPredDefinitionSpecs, RetractedClauses, Output),
+  % Update the defined predicate definition specs
   catch(retractall(pred_definition_specs(_)), _Exception, true),
   assert(pred_definition_specs(NewPredDefinitionSpecs)),
   ( var(RetractedClauses) ->
@@ -248,15 +368,28 @@ retract_previous_clauses(MPredSpec, RetractedClausesJson, Output) :-
   ).
 
 
-% retract_definition_specs(-PredDefinitionSpecs)
+% discontiguous_pred(+MPredSpec)
 %
-% Retracts the Module:PredName/PredArity terms of predicates for which clauses have been asserted for the current request.
-% If there are such predicates, PredDefinitionSpecs is a list containing those.
-% Otherwise, PredDefinitionSpecs=[].
-retract_definition_specs(PredDefinitionSpecs) :-
+% Succeeds if the predicate with pred spec MPredSpec was declared discontiguous.
+:- if(swi).
+discontiguous_pred(Module:PredName/PredArity) :-
+  functor(PredTerm, PredName, PredArity),
+  predicate_property(Module:PredTerm, discontiguous).
+:- else.
+discontiguous_pred(Module:PredName/PredArity) :-
+  jupyter_discontiguous(Module:PredName/PredArity).
+discontiguous_pred(_Module:PredName/PredArity) :-
+  jupyter_discontiguous(PredName/PredArity).
+:- endif.
+
+
+% current_pred_definition_specs(-PredDefinitionSpecs)
+%
+% PredDefinitionSpecs is a list of Module:PredName/PredArity elements for every predicate which is defined by the current request.
+current_pred_definition_specs(PredDefinitionSpecs) :-
   pred_definition_specs(PredDefinitionSpecs),
   !.
-retract_definition_specs([]).
+current_pred_definition_specs([]).
 
 
 % retract_previous_clauses(+MPredSpec, +PredDefinitionSpecs, -NewPredDefinitionSpecs, -RetractedClauses, -Output)
@@ -279,7 +412,7 @@ retract_previous_clauses(Module:PredName/PredArity, PredDefinitionSpecs, [Module
   \+ predicate_property(Module:Term, _Property),
   % The predicate does not exist yet -> no clauses have to be retracted
   !,
-  produce_assert_message(Module:PredName/PredArity, AssertMessage).
+  compute_assert_message(Module:PredName/PredArity, AssertMessage).
 retract_previous_clauses(Module:PredName/PredArity, PredDefinitionSpecs, PredDefinitionSpecs, _RetractedClauses, '') :-
   functor(Term, PredName, PredArity),
   \+ predicate_property(Module:Term, dynamic),
@@ -298,14 +431,14 @@ retract_previous_clauses(Module:PredName/PredArity, PredDefinitionSpecs, [Module
   % Create a new unbound term to retract all clauses
   functor(Term, PredName, PredArity),
   retractall(Module:Term),
-  produce_assert_message(Module:PredName/PredArity, AssertMessage).
+  compute_assert_message(Module:PredName/PredArity, AssertMessage).
 retract_previous_clauses(PredSpec, PredDefinitionSpecs, [PredSpec|PredDefinitionSpecs], _RetractedClauses, AssertMessage) :-
   % There are no clauses to retract
-  produce_assert_message(PredSpec, AssertMessage).
+  compute_assert_message(PredSpec, AssertMessage).
 
 
-% produce_assert_message(+MPredSpec, -AssertMessage)
-produce_assert_message(PredSpec, AssertMessage) :-
+% compute_assert_message(+MPredSpec, -AssertMessage)
+compute_assert_message(PredSpec, AssertMessage) :-
   format_to_codes('% Asserting clauses for ~w~n', [PredSpec], AssertCodes),
   atom_codes(AssertMessage, AssertCodes).
 
@@ -424,6 +557,12 @@ handle_query_term_(trace(_Pred, _Ports), _IsDirective, _CallRequestId, _Stack, _
 % leash/1
 handle_query_term_(leash(_Ports), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   assert_error_response(exception, message_data(error, jupyter(leash_pred)), '', []).
+:- if(sicstus).
+handle_query_term_(abolish(Predicates), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continue) :- !,
+  handle_abolish(abolish(Predicates), CallRequestId, OriginalTermData).
+handle_query_term_(abolish(Predicates, Options), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continus) :- !,
+  handle_abolish(abolish(Predicates, Options), CallRequestId, OriginalTermData).
+:- endif.
 % Any other query
 handle_query_term_(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData, LoopCont, Cont) :-
   handle_query(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData, LoopCont, Cont).
@@ -791,7 +930,7 @@ handle_begin_tests(Directive, _Unit, Bindings) :-
   test_definition_stream(TestDefinitionStream),
   % Not the first begin_tests directive -> write to the existing file
   !,
-  write_to_test_definition_stream(Directive, Bindings, TestDefinitionStream).
+  write_term_to_stream(Directive, Bindings, TestDefinitionStream).
 handle_begin_tests(Directive, Unit, Bindings) :-
   % First begin_tests directive of the request or after a run_tests query -> create a new file
   begin_new_test_file(Directive, Unit, Bindings).
@@ -806,7 +945,14 @@ begin_new_test_file(Directive, Unit, Bindings) :-
   % Load the module plunit in the file
   % Otherwise, if the module was not loaded, the loading of the test definition file fails with an existence error because of user:begin_test/1
   write_term(TestDefinitionStream, ':- use_module(library(plunit)).\n', []),
-  write_to_test_definition_stream(Directive, Bindings, TestDefinitionStream).
+  write_term_to_stream(Directive, Bindings, TestDefinitionStream).
+
+
+% handle_end_tests(+Directive)
+handle_end_tests(Directive) :-
+  test_definition_stream(TestDefinitionStream),
+  % Otherwise, there was no begin_tests directive -> there is no file to write to
+  write_term_to_stream(Directive, [], TestDefinitionStream).
 
 
 % handle_run_tests(+Term, +CallRequestId, +Stack, +Bindings, -Cont)
@@ -818,15 +964,8 @@ handle_run_tests(Term, CallRequestId, Stack, Bindings, Cont) :-
   handle_query(Term, false, CallRequestId, Stack, Bindings, _OriginalTermData, cut, Cont).
 
 
-% write_to_test_definition_stream(+Term, +Bindings)
-write_to_test_definition_stream(Term, Bindings) :-
-  test_definition_stream(TestDefinitionStream),
-  !,
-  write_to_test_definition_stream(Term, Bindings, TestDefinitionStream).
-% Otherwise, there was no begin_tests directive -> there is no file to write to
-
-% write_to_test_definition_stream(+Term, +Bindings, +TestDefinitionStream)
-write_to_test_definition_stream(Term, Bindings, TestDefinitionStream) :-
+% write_term_to_stream(+Term, +Bindings, +TestDefinitionStream)
+write_term_to_stream(Term, Bindings, TestDefinitionStream) :-
   write_term(TestDefinitionStream, Term, [variable_names(Bindings)]),
   write_term(TestDefinitionStream, '.\n', []).
 
@@ -971,9 +1110,6 @@ assert_sld_data(call, MGoal, Current, Parent) :-
   assertz(sld_data(GoalCodes, Current, Parent)).
 assert_sld_data(_Port, _MGoal, _Current, _Parent) :-
   collect_sld_data. % SLD data is to be colleted, but not for ports other than call
-
-
-% TODO Fix for SICStus
 
 
 % handle_print_sld_tree(+Goal, +Bindings)
@@ -1407,6 +1543,50 @@ print_stack_([]) :- !.
 print_stack_([Query|Queries]) :-
   format('    ~w~n', [Query]),
   print_stack_(Queries).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% abolish
+
+% In case of SWI-Prolog, a predicate declared as discontiguous can be determined as such by predicate_property(P, discontiguous).
+% As this is not the case for SICStus Prolog, the dynamic predicate jupyter_discontiguous(PredSpec) is used instead.
+% PredSpec is the predicate spec of a predicate which was declared discontiguous.
+
+% When removing a predicate from the dataase with abolish, its properties are removed as well.
+% In that case, the corresponding jupyter_discontiguous/1 clause also needs to be removed.
+% In order for this to work, abolish needs to be called as the single goal of a query.
+
+:- if(sicstus).
+% handle_abolish(+Goal, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont)
+handle_abolish(Goal, CallRequestId, OriginalTermData) :-
+  output:call_query_with_output_to_file(Goal, CallRequestId, [], OriginalTermData, Output, ErrorMessageData, IsFailure),
+  % Exception, failure or success from Goal
+  ( nonvar(ErrorMessageData) -> % Exception
+    !,
+    assert_error_response(exception, ErrorMessageData, Output, [])
+  ; IsFailure == true -> % Failure
+    !,
+    assert_error_response(failure, ErrorMessageData, Output, [])
+  ; otherwise -> % Success
+    Goal =.. [abolish, Predicates|_Options],
+    retract_jupyter_discontiguous(Predicates),
+    assert_success_response(query, [], Output, [])
+  ).
+
+
+% retract_jupyter_discontiguous(+Predicates)
+%
+% Predicates is a predicate specification or a list of such.
+retract_jupyter_discontiguous(Module:Name/Arity) :- !,
+  catch(retractall(jupyter_discontiguous(Module:Name/Arity)), _Exception, true).
+retract_jupyter_discontiguous(Name/Arity) :- !,
+  catch(retractall(jupyter_discontiguous(Name/Arity)), _Exception, true).
+retract_jupyter_discontiguous([]) :- !.
+retract_jupyter_discontiguous([PredSpec|PredSpecs]) :-
+  retract_jupyter_discontiguous(PredSpec),
+  retract_jupyter_discontiguous(PredSpecs).
+:- endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

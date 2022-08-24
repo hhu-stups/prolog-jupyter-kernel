@@ -176,43 +176,43 @@ server_tests_message(server_not_running) --> !,
     expected_variable_bindings/2,   % expected_variable_bindings(TestName, ExpectedVariableBindings)
     expected_output/2,              % expected_output(TestName, ExpectedOutput)
     expected_retracted_clauses/2,   % expected_retracted_clauses(TestName, ExpectedOutput)
-    expected_prolog_message_subterm/4.  % expected_prolog_message_subterm(TestName, Before, Length, ErrorInfoSubterm)
+    expected_prolog_message_subterm/4.  % expected_prolog_message_subterm(TestName, Before, Length, PrologMessageSubterm)
 
 % In some cases, the error information returned for a request cannot be compared as is because it may contain a variable or path name which is not always the same.
 % In such cases, only a subterm is compared.
 
-% error_result_message_subterms(+TestName, +Request, +Id, +ExpectedOutput, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
-error_result_message_subterms(TestName, Request, Id, ExpectedOutput, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
+% error_result_message_subterms(+TestName, +Request, +Id, +ExpectedOutput, -PrologMessageSubterm, -ExpectedPrologMessageSubterm) :-
+error_result_message_subterms(TestName, Request, Id, ExpectedOutput, PrologMessageSubterm, ExpectedPrologMessageSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,output=Output])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedPrologMessageSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage,output=Output])]),
   % Send the request to get the success response containing the error result
   send_call_with_single_error_result(Request, Id, Error),
   % Compare the output
   check_equality(Output, ExpectedOutput),
   % Get the subterm of the error info which is to be compared with the expected one
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
-% error_result_message_subterms(+TestName, +Request, +Id, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
-error_result_message_subterms(TestName, Request, Id, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
+% error_result_message_subterms(+TestName, +Request, +Id, -PrologMessageSubterm, -ExpectedPrologMessageSubterm) :-
+error_result_message_subterms(TestName, Request, Id, PrologMessageSubterm, ExpectedPrologMessageSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedPrologMessageSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage])]),
   % Send the request to get the success response containing the error result
   send_call_with_single_error_result(Request, Id, Error),
   % Get the subterm of the error info which is to be compared with the expected one
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
 
-% error_response_message_subterms(+TestName, +Request, +Id, -ErrorInfoSubterm, -ExpectedErrorInfoSubterm) :-
-error_response_message_subterms(TestName, Request, Id, ErrorInfoSubterm, ExpectedErrorInfoSubterm) :-
+% error_response_message_subterms(+TestName, +Request, +Id, -PrologMessageSubterm, -ExpectedPrologMessageSubterm) :-
+error_response_message_subterms(TestName, Request, Id, PrologMessageSubterm, ExpectedPrologMessageSubterm) :-
   % Get the expected error info subterm for the test with name TestName
-  expected_prolog_message_subterm(TestName, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo])]),
+  expected_prolog_message_subterm(TestName, Before, Length, ExpectedPrologMessageSubterm),
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage])]),
   % Send the request to get the success response containing the error result
   send_failure_request(Request, Id, Error),
   % Get the subterm of the error info which is to be compared with the expected one
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -405,20 +405,20 @@ expected_prolog_message_subterm(syntax_error_in_second_term, 0, 107, '! Syntax e
 
 :- begin_tests(exceptions, [setup(start_process), cleanup(release_process(true))]).
 
-test(non_existent_predicate, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(non_existent_predicate, 'non_existent_predicate.', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(non_existent_predicate, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(non_existent_predicate, 'non_existent_predicate.', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(instantiation_error, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(instantiation_error, 'X is Y + 2.', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(instantiation_error, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(instantiation_error, 'X is Y + 2.', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(type_error, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(type_error, '3 is y + 2.', 3, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(type_error, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(type_error, '3 is y + 2.', 3, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(syntax_error, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_response_message_subterms(syntax_error, 'faulty([1,2).', 4, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(syntax_error, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_response_message_subterms(syntax_error, 'faulty([1,2).', 4, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(syntax_error_in_second_term, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_response_message_subterms(syntax_error_in_second_term, 'valid. faulty([1,2).', 5, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(syntax_error_in_second_term, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_response_message_subterms(syntax_error_in_second_term, 'valid. faulty([1,2).', 5, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 :- end_tests(exceptions).
 
@@ -511,23 +511,23 @@ test(retry_failure_with_output, [true(RetryError = ExpectedRetryError)]) :-
   ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: member(X,[1,a]),print(X),number(X)\na'])]),
   send_call_with_single_error_result(RetryRequest, 15, RetryError).
 
-test(exception_in_retry, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(exception_in_retry, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   MemberRequest = 'member(M, [1,a,2]), X is M + 1.',
   ExpectedMemberResult = [type=query,bindings=json(['M'='1','X'='2']),output=''],
   send_call_with_single_success_result(MemberRequest, 16, MemberResult),
   check_equality(MemberResult, ExpectedMemberResult),
   % Retrying the goal throws an exception
   Output = '% Retrying goal: member(M,[1,a,2]),X is M+1\n',
-  error_result_message_subterms(exception_in_retry, 'retry.', 17, Output, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+  error_result_message_subterms(exception_in_retry, 'retry.', 17, Output, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(exception_in_retry_with_output, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(exception_in_retry_with_output, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   MemberRequest = 'member(M, [1,a,2]), print(M), X is M + 1.',
   ExpectedMemberResult = [type=query,bindings=json(['M'='1','X'='2']),output='1'],
   send_call_with_single_success_result(MemberRequest, 18, MemberResult),
   check_equality(MemberResult, ExpectedMemberResult),
   % Before throwing an exception, retrying the goal produces output
   Output = '% Retrying goal: member(M,[1,a,2]),print(M),X is M+1\na',
-  error_result_message_subterms(exception_in_retry, 'retry.', 19, Output, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+  error_result_message_subterms(exception_in_retry, 'retry.', 19, Output, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(retry_and_cut_in_one_request, [true(Result = ExpectedResult)]) :-
   Request = '?- member(X, [1,2,3]). ?- retry. ?- member(Y, [a,b,c]). ?- retry. ?- cut. ?- retry.',
@@ -541,11 +541,11 @@ test(retry_and_cut_in_one_request, [true(Result = ExpectedResult)]) :-
 
 % retry/0 and cut/0 need to be the single goal in a term
 
-test(retry_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(retry_no_single_goal, 'append([1], [2], A), retry.', 21, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(retry_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(retry_no_single_goal, 'append([1], [2], A), retry.', 21, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(cut_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(cut_no_single_goal, 'append([1], [2], A), cut.', 22, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(cut_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(cut_no_single_goal, 'append([1], [2], A), cut.', 22, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 :- end_tests(retry_and_cut).
 
@@ -565,8 +565,8 @@ expected_prolog_message_subterm(load_module, 0, 115, '! Syntax error in read_ter
 
 test(load_test_file, [true(TestPredResult = ExpectedTestPredResult)]) :-
   % Make sure that the predicate does not exist before loading the file
-  error_result_message_subterms(load_test_file, 'test_pred(X).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm),
-  check_equality(ErrorInfoSubterm, ExpectedErrorInfoSubterm),
+  error_result_message_subterms(load_test_file, 'test_pred(X).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm),
+  check_equality(PrologMessageSubterm, ExpectedPrologMessageSubterm),
   % Load the test file defining test_pred/1
   LoadRequest = 'ensure_loaded(test).',
   ExpectedLoadResult = [type=query,bindings=json([]),output=_LoadOutput],
@@ -579,8 +579,8 @@ test(load_test_file, [true(TestPredResult = ExpectedTestPredResult)]) :-
 
 test(load_module, [true(ClpfdResult = ExpectedClpfdResult)]) :-
   % Make sure that a syntax error is thrown before loading the clpfd module
-  error_response_message_subterms(load_module, 'X #<= 10, X #> 3.', 4, ErrorInfoSubterm, ExpectedErrorInfoSubterm),
-  check_equality(ErrorInfoSubterm, ExpectedErrorInfoSubterm),
+  error_response_message_subterms(load_module, 'X #<= 10, X #> 3.', 4, PrologMessageSubterm, ExpectedPrologMessageSubterm),
+  check_equality(PrologMessageSubterm, ExpectedPrologMessageSubterm),
   % Load the clpfd library defining the operators
   LoadRequest = 'use_module(library(clpfd)).',
   ExpectedLoadResult = [type=query,bindings=json([]),output=_LoadOutput],
@@ -613,8 +613,8 @@ expected_prolog_message_subterm(static_predicate_definition_error_and_redefiniti
 
 test(app_predicate_definition, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
   % Make sure that the predicate does not exist before defining it
-  error_result_message_subterms(app_predicate_definition, 'app([1,2], [3,4], [1,2,3,4]).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm),
-  check_equality(ErrorInfoSubterm, ExpectedErrorInfoSubterm),
+  error_result_message_subterms(app_predicate_definition, 'app([1,2], [3,4], [1,2,3,4]).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm),
+  check_equality(PrologMessageSubterm, ExpectedPrologMessageSubterm),
   % Define the predicate and call it in the same request
   DefinitionRequest = 'app([], Res, Res) :- !. app([Head|Tail], List, [Head|Res]) :- app(Tail, List, Res). ?- app([1,2], [3,4], R).',
   ExpectedDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:app/3\n',retracted_clauses=json([])]),
@@ -645,7 +645,7 @@ test(predicate_redefinition, [true(RetryError = ExpectedRetryError)]) :-
   ExpectedRetryError = json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: p(X)\n'])]),
   send_call_with_single_error_result(RetryRequest, 6, RetryError).
 
-test(static_predicate_definition_error_and_redefinition, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(static_predicate_definition_error_and_redefinition, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   % Define a predicate p/0
   DefinitionRequest = 'p :- true.',
   ExpectedDefinitionResult = [type=clause_definition,bindings=json([]),output='% Asserting clauses for user:p/0\n',retracted_clauses=json([])],
@@ -653,14 +653,14 @@ test(static_predicate_definition_error_and_redefinition, [true(ErrorInfoSubterm 
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Try to redefine append/3 and p/0 -> output and error message
   Request = 'p. append([1], [2], [1,2]).',
-  expected_prolog_message_subterm(static_predicate_definition_error_and_redefinition, Before, Length, ExpectedErrorInfoSubterm),
+  expected_prolog_message_subterm(static_predicate_definition_error_and_redefinition, Before, Length, ExpectedPrologMessageSubterm),
   expected_retracted_clauses(static_predicate_definition_error_and_redefinition, ExpectedRetractedClauses),
   Error = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:p/0\n',retracted_clauses=json(RetractedClauses)]),
-                '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,retracted_clauses=json([])])])])]),
+                '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage,retracted_clauses=json([])])])])]),
   send_success_call(Request, 8, Error),
   check_equality(RetractedClauses, ExpectedRetractedClauses),
   % Get the subterm of the error info which is to be compared with the expected one
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
 test(multiple_clauses_for_multiple_predicates_without_retract, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
   DefinitionRequest = 'a(1). a(2). b(1). b(2). b(3). c(1). c(2).',
@@ -672,6 +672,95 @@ test(multiple_clauses_for_multiple_predicates_without_retract, [true(DefinitionR
                                    '6'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:c/1\n',retracted_clauses=json([])]),
                                    '7'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])])]),
   send_success_call(DefinitionRequest, 9, DefinitionResult).
+
+:- if(swi).
+test(discontiguous_static, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
+  DeclarationRequest = ':- discontiguous fact/1.',
+  ExpectedDeclarationResult = [type=directive,bindings=json([]),output=''],
+  send_call_with_single_success_result(DeclarationRequest, 10, DeclarationResult),
+  check_equality(DeclarationResult, ExpectedDeclarationResult),
+  % Defining a clause results in an error because the predicate was not declared dynamic
+  DefinitionRequest = 'fact(a). fact(b).',
+  ExpectedDefinitionResult = json(['1'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message='ERROR: assertz/1: No permission to modify static procedure `fact/1\'',output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])])])]),
+                                   '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message='ERROR: assertz/1: No permission to modify static procedure `fact/1\'',retracted_clauses=json([])])])])]),
+  send_success_call(DefinitionRequest, 11, DefinitionResult).
+
+test(discontiguous, [true(NewFurtherDefinitionResult = ExpectedNewFurtherDefinitionResult)]) :-
+  % When defining clauses for a discontiguous predicate, it also needs to be declared dynamic
+  DeclarationRequest = ':- discontiguous fact/1. :- dynamic fact/1.',
+  ExpectedDeclarationResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='']),
+                         '2'=json([status=success,type=directive,bindings=json([]),output=''])]),
+  send_success_call(DeclarationRequest, 11, DeclarationResult),
+  check_equality(DeclarationResult, ExpectedDeclarationResult),
+  % Define clauses
+  DefinitionRequest = 'fact(a). fact(b).',
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])]),
+                                   '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])])]),
+  send_success_call(DefinitionRequest, 12, DefinitionResult),
+  check_equality(DefinitionResult, ExpectedDefinitionResult),
+  % When defining more clauses for the discontiguous predicate, no previous clauses are retracted
+  FurtherDefinitionRequest = 'fact(c). fact(d). :- listing(fact/1).',
+  ExpectedFurtherDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])]),
+                                          '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])]),
+                                          '3'=json([status=success,type=directive,bindings=json([]),output=':- dynamic fact/1.\n\nfact(a).\nfact(b).\nfact(c).\nfact(d).\n'])]),
+  send_success_call(FurtherDefinitionRequest, 13, FurtherDefinitionResult),
+  check_equality(FurtherDefinitionResult, ExpectedFurtherDefinitionResult),
+  % After abolishing the predicate, it is not discontiguous anymore
+  AbolishRequest = '?- abolish(fact/1). fact(a).',
+  ExpectedAbolishResult = json(['1'=json([status=success,type=query,bindings=json([]),output='']),
+                                '2'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])])]),
+  send_success_call(AbolishRequest, 14, AbolishResult),
+  check_equality(AbolishResult, ExpectedAbolishResult),
+  % Defining further clauses results in retracting the previous clauses
+  ExpectedNewFurtherDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json(['user:fact/1'=':- dynamic fact/1.\n\nfact(a).\n'])]),
+                                             '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])]),
+                                             '3'=json([status=success,type=directive,bindings=json([]),output=':- dynamic fact/1.\n\nfact(c).\nfact(d).\n'])]),
+  send_success_call(FurtherDefinitionRequest, 15, NewFurtherDefinitionResult),
+  check_equality(NewFurtherDefinitionResult, ExpectedNewFurtherDefinitionResult).
+:- else.
+test(discontiguous_static, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
+  DeclarationRequest = ':- discontiguous fact/1.',
+  ExpectedDeclarationResult = [type=directive,bindings=json([]),output='\n% Loaded the declaration file'],
+  send_call_with_single_success_result(DeclarationRequest, 10, DeclarationResult),
+  check_equality(DeclarationResult, ExpectedDeclarationResult),
+  % Defining a clause results in an error because the predicate was not declared dynamic
+  DefinitionRequest = 'fact(a). fact(b).',
+  ExpectedDefinitionResult = json(['1'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message='! Permission error: cannot assert static user:fact/1\n! goal:  assertz(user:fact(a))',output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])])])]),
+                                   '2'=json([status=error,error=json([code= -4712,message='Exception',data=json([prolog_message='! Permission error: cannot assert static user:fact/1\n! goal:  assertz(user:fact(b))',retracted_clauses=json([])])])])]),
+  send_success_call(DefinitionRequest, 11, DefinitionResult).
+
+test(discontiguous, [true(NewFurtherDefinitionResult = ExpectedNewFurtherDefinitionResult)]) :-
+  % When defining clauses for a discontiguous predicate, it also needs to be declared dynamic
+  DeclarationRequest = ':- discontiguous fact/1. :- dynamic fact/1.',
+  ExpectedDeclarationResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Loaded the declaration file'])]),
+  send_success_call(DeclarationRequest, 11, DeclarationResult),
+  check_equality(DeclarationResult, ExpectedDeclarationResult),
+  % Define clauses
+  DefinitionRequest = 'fact(a). fact(b).',
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])]),
+                                   '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])])]),
+  send_success_call(DefinitionRequest, 12, DefinitionResult),
+  check_equality(DefinitionResult, ExpectedDefinitionResult),
+  % When defining more clauses for the discontiguous predicate, no previous clauses are retracted
+  FurtherDefinitionRequest = 'fact(c). fact(d). :- listing(fact/1).',
+  ExpectedFurtherDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])]),
+                                          '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])]),
+                                          '3'=json([status=success,type=directive,bindings=json([]),output='fact(a).\nfact(b).\nfact(c).\nfact(d).\n'])]),
+  send_success_call(FurtherDefinitionRequest, 13, FurtherDefinitionResult),
+  check_equality(FurtherDefinitionResult, ExpectedFurtherDefinitionResult),
+  % After abolishing the predicate, it is not discontiguous anymore
+  AbolishRequest = '?- abolish(fact/1). fact(a).',
+  ExpectedAbolishResult = json(['1'=json([status=success,type=query,bindings=json([]),output='']),
+                                '2'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json([])])]),
+  send_success_call(AbolishRequest, 14, AbolishResult),
+  check_equality(AbolishResult, ExpectedAbolishResult),
+  % Defining further clauses results in retracting the previous clauses
+  ExpectedNewFurtherDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:fact/1\n',retracted_clauses=json(['user:fact/1'='fact(a).\n'])]),
+                                             '2'=json([status=success,type=clause_definition,bindings=json([]),output='',retracted_clauses=json([])]),
+                                             '3'=json([status=success,type=directive,bindings=json([]),output='fact(c).\nfact(d).\n'])]),
+  send_success_call(FurtherDefinitionRequest, 15, NewFurtherDefinitionResult),
+  check_equality(NewFurtherDefinitionResult, ExpectedNewFurtherDefinitionResult).
+:- endif.
 
 :- end_tests(clause_definitions).
 
@@ -726,8 +815,8 @@ test(query_with_missing_full_stop_ending_with_whitespace, [true(Result = Expecte
   ExpectedResult = [type=query,bindings=json(['M'='1']),output=''],
   send_call_with_single_success_result(Request, 2, Result).
 
-test(syntax_error_and_missing_full_stop, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_response_message_subterms(syntax_error_and_missing_full_stop, 'member(1 [1,2,3])', 3, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(syntax_error_and_missing_full_stop, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_response_message_subterms(syntax_error_and_missing_full_stop, 'member(1 [1,2,3])', 3, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(app_predicate_definition_with_missing_full_stop, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
   DefinitionRequest = 'app([], Res, Res) :- !. app([Head|Tail], List, [Head|Res]) :- app(Tail, List, Res)',
@@ -764,11 +853,11 @@ expected_line_subterm(last, 16, '% 3 tests passed').
 
 :- begin_tests(plunit_tests, [setup(start_process), cleanup(release_process(true))]).
 
-test(single_begin_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(single_begin_tests, ':- begin_tests(list).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(single_begin_tests, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(single_begin_tests, ':- begin_tests(list).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(single_end_tests, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(single_end_tests, ':- end_tests(list).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(single_end_tests, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(single_end_tests, ':- end_tests(list).', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(load_test_definition_file, [true(DefinitionResult = ExpectedDefinitionResult)]) :-
   % Load a test definition file
@@ -920,19 +1009,19 @@ test(directive_with_output, [true(RetryError = ExpectedRetryError)]) :-
   ExpectedRetryError = json([code= -4713,message='No active call',data=json([prolog_message=''])]),
   send_call_with_single_error_result(RetryRequest, 3, RetryError).
 
-test(directive_failure, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(directive_failure, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   Request = ':- member(4, [1,2,3]).',
-  expected_prolog_message_subterm(directive_failure, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo])]),
+  expected_prolog_message_subterm(directive_failure, Before, Length, ExpectedPrologMessageSubterm),
+  Error = json([code= -4711,message='Failure',data=json([prolog_message=PrologMessage])]),
   send_call_with_single_error_result(Request, 4, Error),
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
-test(directive_failure_with_output, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(directive_failure_with_output, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   Request = ':- print(test), fail.',
-  expected_prolog_message_subterm(directive_failure_with_output, Before, Length, ExpectedErrorInfoSubterm),
-  Error = json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo,output='test'])]),
+  expected_prolog_message_subterm(directive_failure_with_output, Before, Length, ExpectedPrologMessageSubterm),
+  Error = json([code= -4711,message='Failure',data=json([prolog_message=PrologMessage,output='test'])]),
   send_call_with_single_error_result(Request, 5, Error),
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
 test(multiple_directives, [true(Result = ExpectedResult)]) :-
   Request = ':- member(M, [1,2,3]), write(M). :- member(M, [a,b,c]), write(M).',
@@ -940,13 +1029,13 @@ test(multiple_directives, [true(Result = ExpectedResult)]) :-
                          '2'=json([status=success,type=directive,bindings=json([]),output=a])]),
   send_success_call(Request, 6, Result).
 
-test(multiple_directives_failure, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(multiple_directives_failure, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   Request = ':- append([1], [2], Res), print(Res). :- append(1, 2, Res), print(Res).',
-  expected_prolog_message_subterm(multiple_directives_failure, Before, Length, ExpectedErrorInfoSubterm),
+  expected_prolog_message_subterm(multiple_directives_failure, Before, Length, ExpectedPrologMessageSubterm),
   Result = json(['1'=json([status=success,type=directive,bindings=json([]),output='[1,2]']),
-                 '2'=json([status=error,error=json([code= -4711,message='Failure',data=json([prolog_message=ErrorInfo])])])]),
+                 '2'=json([status=error,error=json([code= -4711,message='Failure',data=json([prolog_message=PrologMessage])])])]),
   send_success_call(Request, 7, Result),
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm).
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm).
 
 test(halt_directive, [true(Result = ExpectedResult)]) :-
   Request = ':- print(1). :- halt. :- print(2)',
@@ -1030,23 +1119,23 @@ define_app_predicates :-
 
 :- begin_tests(debugging, [setup((start_process, define_app_predicates)), cleanup(release_process(true))]).
 
-test(trace_0, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(trace_0, 'trace.', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(trace_0, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(trace_0, 'trace.', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(leash_1, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(leash_1, 'leash(off).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(leash_1, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(leash_1, 'leash(off).', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(exception_in_trace, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
+test(exception_in_trace, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   expected_output(exception_in_trace, ExpectedOutput),
-  error_result_message_subterms(exception_in_trace, 'jupyter:trace((3 is 1 + x)).', 3, ExpectedOutput, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+  error_result_message_subterms(exception_in_trace, 'jupyter:trace((3 is 1 + x)).', 3, ExpectedOutput, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 :- if(swi).
 
-test(trace_1, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(trace_1, 'trace(pred).', 4, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(trace_1, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(trace_1, 'trace(pred).', 4, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(trace_2, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(trace_2, 'trace(pred, call).', 5, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(trace_2, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(trace_2, 'trace(pred, call).', 5, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(jupyter_trace, [true(RetryError = ExpectedRetryError)]) :-
   % Print the trace of the predicate app/3
@@ -1085,11 +1174,11 @@ test(spypoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
   ExpectedExceptionOutput = '   Call: (58) 3 is 1+x\n   Exception: (58) 3 is 1+x\n   Exception: (57) jupyter:trace(3 is 1+x)',
-  ExpectedErrorInfo = 'ERROR: is/2: Arithmetic: `x/0\' is not a function',
-  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo, output=ExceptionOutput])]),
+  ExpectedPrologMessage = 'ERROR: is/2: Arithmetic: `x/0\' is not a function',
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 12, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
-  check_equality(ErrorInfo, ExpectedErrorInfo),
+  check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
   ExpectedCall3Result = [type=query,bindings=json([]),output='   Call: (58) app([1], [2], [1, 2])\n   Call: (59) app([], [2], [2])\n   Exit: (59) app([], [2], [2])\n   Exit: (58) app([1], [2], [1, 2])'],
   send_call_with_single_success_result(Call3Request, 13, Call3Result).
@@ -1131,19 +1220,19 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3380     13 Call: ^1 [1]\n *   3381     14 Call: ^1 []\n *   3381     14 Exit: ^1 []\n *   3380     13 Exit: ^1 [1]'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3382     13 Call: ^1 [1]\n *   3383     14 Call: ^1 []\n *   3383     14 Exit: ^1 []\n *   3382     13 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call2Request, 10, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '     5417     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5417     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5408     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5407     20 Exception: call(jupyter:trace(3 is 1+x))',
-  ExpectedErrorInfo = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
-  Error = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo, output=ExceptionOutput])]),
+  ExpectedExceptionOutput = '     5421     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5421     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5412     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5411     20 Exception: call(jupyter:trace(3 is 1+x))',
+  ExpectedPrologMessage = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
+  Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
-  check_equality(ErrorInfo, ExpectedErrorInfo),
+  check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10395     22 Call: ^1 [1]\n *  10396     23 Call: ^1 []\n *  10396     23 Exit: ^1 []\n *  10395     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10401     22 Call: ^1 [1]\n *  10402     23 Call: ^1 []\n *  10402     23 Exit: ^1 []\n *  10401     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 
@@ -1171,8 +1260,8 @@ expected_prolog_message_subterm(variable_value_not_stored, 0, 38, '! $X was not 
 
 :- begin_tests(stored_variable_bindings, [setup(start_process), cleanup(release_process(true))]).
 
-test(variable_value_not_stored, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(variable_value_not_stored, 'Z is $X + $Y.', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(variable_value_not_stored, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(variable_value_not_stored, 'Z is $X + $Y.', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(no_stored_variable_bindings, [true(CallResult = ExpectedCallResult)]) :-
   CallRequest = 'jupyter:print_variable_bindings.',
@@ -1281,8 +1370,8 @@ test(print_table_1_without_result, [true(Result = ExpectedResult)]) :-
   ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[[]],'VariableNames'=[]])],
   send_call_with_single_success_result(Request, 7, Result).
 
-test(print_table_1_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_table_1_no_single_goal, 'jupyter:print_table((member(Member, [10,20,30]), Square is Member*Member)), nl.', 8, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_table_1_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_table_1_no_single_goal, 'jupyter:print_table((member(Member, [10,20,30]), Square is Member*Member)), nl.', 8, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 % jupyter:print_table/2
 
@@ -1321,17 +1410,17 @@ test(print_table_2_no_variable_names, [true(Result = ExpectedResult)]) :-
   ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['A','B']])],
   send_call_with_single_success_result(Request, 15, Result).
 
-test(print_table_2_with_unbound_variable_name, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_table_2_with_unbound_variable_name, 'jupyter:print_table([[10,100],[20,400],[30,900]], [\'A\', B]).', 16, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_table_2_with_unbound_variable_name, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_table_2_with_unbound_variable_name, 'jupyter:print_table([[10,100],[20,400],[30,900]], [\'A\', B]).', 16, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(print_table_2_different_length_values_lists_and_names, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_table_2_different_length_values_lists_and_names, 'jupyter:print_table([[10,100],[20,400],[30,900]], [\'A\']).', 17, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_table_2_different_length_values_lists_and_names, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_table_2_different_length_values_lists_and_names, 'jupyter:print_table([[10,100],[20,400],[30,900]], [\'A\']).', 17, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(print_table_2_different_length_values_lists, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_table_2_different_length_values_lists, 'jupyter:print_table([[10,100],[20],[30,900]], [\'X\', \'Y\']).', 18, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_table_2_different_length_values_lists, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_table_2_different_length_values_lists, 'jupyter:print_table([[10,100],[20],[30,900]], [\'X\', \'Y\']).', 18, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(print_table_2_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_table_2_no_single_goal, 'findall([Member], member(Member, [10,20,30]), ResultLists), jupyter:print_table(ResultLists, [\'Member\', \'Square\']).', 19, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_table_2_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_table_2_no_single_goal, 'findall([Member], member(Member, [10,20,30]), ResultLists), jupyter:print_table(ResultLists, [\'Member\', \'Square\']).', 19, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 :- end_tests(print_table).
 
@@ -1484,9 +1573,9 @@ expected_prolog_message_subterm(sld_tree_exception, 0, 82, '! Type error in argu
 expected_output(sld_tree_exception, '1\n% The debugger is switched off').
 
 expected_print_sld_tree(sld_tree_with_variable_bindings, 'digraph {\n    "4" [label="pred(A,B)"]\n    "5" [label="g1(A,C)"]\n    "6" [label="g11(A,D)"]\n    "7" [label="g12(b,C)"]\n    "8" [label="g2(c,B)"]\n    "4" -> "5"\n    "5" -> "6"\n    "5" -> "7"\n    "4" -> "8"\n}').
-expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6931" [label="print(test)"]\n    "6932" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6933" [label="app([3],[4],A)"]\n    "6934" [label="print(3)"]\n    "6935" [label="app([],[4],B)"]\n    "6936" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6937" [label="print(1)"]\n    "6938" [label="app([2],[3,4],[2,3,4])"]\n    "6939" [label="print(2)"]\n    "6940" [label="app([],[3,4],[3,4])"]\n    "6941" [label="print(done)"]\n    "6932" -> "6933"\n    "6933" -> "6934"\n    "6933" -> "6935"\n    "6932" -> "6936"\n    "6936" -> "6937"\n    "6936" -> "6938"\n    "6938" -> "6939"\n    "6938" -> "6940"\n}').
-expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12492" [label="print(failure_test)"]\n    "12493" [label="append([1],[2],[3])"]\n}').
-expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16778" [label="member_square([1,a,3])"]\n    "16779" [label="member(A,[1,a,3])"]\n    "16780" [label="B is 1*1"]\n    "16781" [label="print(1)"]\n    "16782" [label="B is a*a"]\n    "16778" -> "16779"\n    "16778" -> "16780"\n    "16778" -> "16781"\n    "16778" -> "16782"\n}').
+expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6944" [label="print(test)"]\n    "6945" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6946" [label="app([3],[4],A)"]\n    "6947" [label="print(3)"]\n    "6948" [label="app([],[4],B)"]\n    "6949" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6950" [label="print(1)"]\n    "6951" [label="app([2],[3,4],[2,3,4])"]\n    "6952" [label="print(2)"]\n    "6953" [label="app([],[3,4],[3,4])"]\n    "6954" [label="print(done)"]\n    "6945" -> "6946"\n    "6946" -> "6947"\n    "6946" -> "6948"\n    "6945" -> "6949"\n    "6949" -> "6950"\n    "6949" -> "6951"\n    "6951" -> "6952"\n    "6951" -> "6953"\n}').
+expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12507" [label="print(failure_test)"]\n    "12508" [label="append([1],[2],[3])"]\n}').
+expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16800" [label="member_square([1,a,3])"]\n    "16801" [label="member(A,[1,a,3])"]\n    "16802" [label="B is 1*1"]\n    "16803" [label="print(1)"]\n    "16804" [label="B is a*a"]\n    "16800" -> "16801"\n    "16800" -> "16802"\n    "16800" -> "16803"\n    "16800" -> "16804"\n}').
 :- endif.
 
 
@@ -1542,18 +1631,18 @@ test(sld_tree_exception, [true(SldData = ExpectedSldData)]) :-
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % When printing the SLD tree, everything computed before the exception is output
   Request = 'jupyter:print_sld_tree(member_square([1,a,3])).',
-  expected_prolog_message_subterm(sld_tree_exception, Before, Length, ExpectedErrorInfoSubterm),
+  expected_prolog_message_subterm(sld_tree_exception, Before, Length, ExpectedPrologMessageSubterm),
   expected_output(sld_tree_exception, ExpectedOutput),
   expected_print_sld_tree(sld_tree_exception, ExpectedSldData),
-  Result = json([code= -4712,message='Exception',data=json([prolog_message=ErrorInfo,output=Output,print_sld_tree=SldData])]),
+  Result = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage,output=Output,print_sld_tree=SldData])]),
   send_call_with_single_error_result(Request, 7, Result),
   % Get the subterm of the error info which is to be compared with the expected one
-  sub_atom(ErrorInfo, Before, Length, _, ErrorInfoSubterm),
-  check_equality(ErrorInfoSubterm, ExpectedErrorInfoSubterm),
+  sub_atom(PrologMessage, Before, Length, _, PrologMessageSubterm),
+  check_equality(PrologMessageSubterm, ExpectedPrologMessageSubterm),
   check_equality(Output, ExpectedOutput).
 
-test(print_sld_tree_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_sld_tree_no_single_goal, 'jupyter:print_sld_tree(print(test)), print(exception).', 8, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_sld_tree_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_sld_tree_no_single_goal, 'jupyter:print_sld_tree(print(test)), print(exception).', 8, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 :- end_tests(print_sld_tree).
 
@@ -1586,23 +1675,23 @@ define_transition_predicates :-
 
 :- begin_tests(print_transition_graph, [setup((start_process, define_transition_predicates)), cleanup(release_process(true))]).
 
-test(incorrect_pred_spec, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(incorrect_pred_spec, 'jupyter:print_transition_graph(edge, 1, 3, 2).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(incorrect_pred_spec, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(incorrect_pred_spec, 'jupyter:print_transition_graph(edge, 1, 3, 2).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(incorrect_from_index, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(user:edge/3, 4, 3, 2).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(incorrect_from_index, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(user:edge/3, 4, 3, 2).', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(incorrect_to_index, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 5, 2).', 3, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(incorrect_to_index, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 5, 2).', 3, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(incorrect_label_index, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 3, 7).', 4, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(incorrect_label_index, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 3, 7).', 4, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(incorrect_label_index, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 3, 7).', 5, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(incorrect_label_index, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(edge/3, 1, 3, 7).', 5, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(print_transition_graph_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_transition_graph_no_single_goal, 'jupyter:print_transition_graph(edge/3, 1, 3, 2), print(exception).', 6, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_transition_graph_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_transition_graph_no_single_goal, 'jupyter:print_transition_graph(edge/3, 1, 3, 2), print(exception).', 6, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(transition_graph, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_transition_graph(edge/3, 1, 3, 2).',
@@ -1627,11 +1716,11 @@ expected_prolog_message_subterm(set_prolog_impl_no_single_goal, 0, 63, '! jupyte
 
 :- begin_tests(set_prolog_impl, [setup((start_process)), cleanup(release_process(true))]).
 
-test(variable_argument, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(variable_argument, 'jupyter:set_prolog_impl(_Impl).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(variable_argument, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(variable_argument, 'jupyter:set_prolog_impl(_Impl).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(set_prolog_impl_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(set_prolog_impl_no_single_goal, 'Impl = swi, jupyter:set_prolog_impl(Impl).', 2, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(set_prolog_impl_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(set_prolog_impl_no_single_goal, 'Impl = swi, jupyter:set_prolog_impl(Impl).', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(set_prolog_impl_success, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:set_prolog_impl(swi).',
@@ -1650,8 +1739,8 @@ expected_prolog_message_subterm(update_completion_data_no_single_goal, 0, 70, '!
 
 :- begin_tests(update_completion_data, [setup((start_process)), cleanup(release_process(true))]).
 
-test(update_completion_data_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(update_completion_data_no_single_goal, 'jupyter:update_completion_data, print(exception).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(update_completion_data_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(update_completion_data_no_single_goal, 'jupyter:update_completion_data, print(exception).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(update_completion_data_success, [true(NewResult = NewExpectedResult)]) :-
   UpdateRequest = 'jupyter:update_completion_data.',
@@ -1680,8 +1769,8 @@ expected_prolog_message_subterm(print_stack_no_single_goal, 0, 59, '! jupyter:pr
 
 :- begin_tests(print_stack, [setup((start_process)), cleanup(release_process(true))]).
 
-test(print_stack_no_single_goal, [true(ErrorInfoSubterm = ExpectedErrorInfoSubterm)]) :-
-  error_result_message_subterms(print_stack_no_single_goal, 'jupyter:print_stack, print(exception).', 1, ErrorInfoSubterm, ExpectedErrorInfoSubterm).
+test(print_stack_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+  error_result_message_subterms(print_stack_no_single_goal, 'jupyter:print_stack, print(exception).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(no_stack, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_stack.',

@@ -29,7 +29,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3]).
 :- use_module(logging, [log/1, log/2]).
 :- use_module(jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
-:- use_module(term_handling, [handle_term/6, test_definition_end/1, pred_definition_specs/1, term_response/1]).
+:- use_module(term_handling, [handle_term/6, declaration_end/1, test_definition_end/1, pred_definition_specs/1, term_response/1]).
 :- use_module(output, [send_reply_on_error/0, retrieve_message/2]).
 :- use_module(jupyter, []).
 
@@ -67,8 +67,9 @@ handle_unexpected_exception(MessageTerm) :-
   retract(request_data(_CallRequestId, _TermsAndVariables)),
   % Use catch/3, because no clauses might have been asserted
   catch(retractall(term_handling:pred_definition_specs(_)), _, true),
-  % Delete the test definition file
+  % Delete the test definition and declaration file
   test_definition_end(false),
+  declaration_end(false),
   % Send an error response
   output:retrieve_message(message_data(error, MessageTerm), ExceptionMessage),
   jsonrpc:send_error_reply(@(null), unhandled_exception, ExceptionMessage),
@@ -131,8 +132,9 @@ send_responses :-
   retract(request_data(CallRequestId, _)),
   % Use catch/3, because no clauses might have been asserted
   catch(retractall(term_handling:pred_definition_specs(_)), _, true),
-  % If any tests were defined by the current request, load the definitions
+  % If any tests were defined or declarations were made by the current request, load the corresponding file(s)
   test_definition_end(true),
+  declaration_end(true),  
   % Collect the responses and send them to the client
   term_responses(1, TermResponses),
   send_success_reply(CallRequestId, json(TermResponses)).
