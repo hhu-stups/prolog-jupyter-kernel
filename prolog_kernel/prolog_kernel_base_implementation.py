@@ -90,14 +90,17 @@ class PrologKernelBaseImplementation:
             dialect_response_dict = self.server_request(0, 'dialect', log_response=False)
             self.logger.debug("Started the Prolog server for dialect '" + dialect_response_dict["result"] + "'")
             self.is_server_restart_required = False
+            # If logging is configured for the server, send a request to create a log file
+            if self.kernel.server_logging == True:
+                logging_response = self.server_request(0, 'enable_logging', log_response=False)
+                if logging_response == 'false':
+                    self.logger.debug('No log file could be created by the Prolog server')
         except Exception as exception:
             raise Exception("The Prolog server could not be started with the arguments " + str(program_arguments))
         finally:
             # Reset the current working directory to the previous value
             os.chdir(previous_cwd)
 
-        # TODO configure logging?
-        
 
     def handle_signal_interrupt(self, signal_received, frame):
         self.handle_interrupt()

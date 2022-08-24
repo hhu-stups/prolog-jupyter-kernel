@@ -27,7 +27,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3]).
-:- use_module(logging, [log/1, log/2]).
+:- use_module(logging, [create_log_file/1, log/1, log/2]).
 :- use_module(jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
 :- use_module(term_handling, [handle_term/6, declaration_end/1, test_definition_end/1, pred_definition_specs/1, term_response/1]).
 :- use_module(output, [send_reply_on_error/0, retrieve_message/2]).
@@ -134,7 +134,7 @@ send_responses :-
   catch(retractall(term_handling:pred_definition_specs(_)), _, true),
   % If any tests were defined or declarations were made by the current request, load the corresponding file(s)
   test_definition_end(true),
-  declaration_end(true),  
+  declaration_end(true),
   % Collect the responses and send them to the client
   term_responses(1, TermResponses),
   send_success_reply(CallRequestId, json(TermResponses)).
@@ -207,6 +207,12 @@ dispatch_request(dialect, Message, _Stack, continue) :-
   Message = request(_Method,CallRequestId,_Params,_RPC),
   current_prolog_flag(dialect, Dialect),
   jsonrpc:send_success_reply(CallRequestId, Dialect).
+dispatch_request(enable_logging, Message, _Stack, continue) :-
+  !,
+  % Send the SICStus version to the client
+  Message = request(_Method,CallRequestId,_Params,_RPC),
+  logging:create_log_file(IsSuccess),
+  jsonrpc:send_success_reply(CallRequestId, IsSuccess).
 :- if(sicstus).
 dispatch_request(version, Message, _Stack, continue) :-
   !,

@@ -245,12 +245,15 @@ test(jupyter_halt, [true(Result = ExpectedResult)]) :-
 test(dialect) :-
   send_success_request(dialect, '', 1, _Result).
 
+test(dialect) :-
+  send_success_request(enable_logging, '', 2, _Result).
+
 test(jupyter_predicate_docs) :-
-  send_success_request(jupyter_predicate_docs, '', 2, _Result).
+  send_success_request(jupyter_predicate_docs, '', 3, _Result).
 
 :- if(sicstus).
 test(version) :-
-  send_success_request(version, '', 3, _Result).
+  send_success_request(version, '', 4, _Result).
 :- endif.
 
 :- end_tests(special_methods).
@@ -1220,19 +1223,19 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3382     13 Call: ^1 [1]\n *   3383     14 Call: ^1 []\n *   3383     14 Exit: ^1 []\n *   3382     13 Exit: ^1 [1]'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3379     13 Call: ^1 [1]\n *   3380     14 Call: ^1 []\n *   3380     14 Exit: ^1 []\n *   3379     13 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call2Request, 10, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '     5421     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5421     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5412     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5411     20 Exception: call(jupyter:trace(3 is 1+x))',
+  ExpectedExceptionOutput = '     5415     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5415     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5406     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5405     20 Exception: call(jupyter:trace(3 is 1+x))',
   ExpectedPrologMessage = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
   Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10401     22 Call: ^1 [1]\n *  10402     23 Call: ^1 []\n *  10402     23 Exit: ^1 []\n *  10401     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10392     22 Call: ^1 [1]\n *  10393     23 Call: ^1 []\n *  10393     23 Exit: ^1 []\n *  10392     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 
@@ -1573,9 +1576,9 @@ expected_prolog_message_subterm(sld_tree_exception, 0, 82, '! Type error in argu
 expected_output(sld_tree_exception, '1\n% The debugger is switched off').
 
 expected_print_sld_tree(sld_tree_with_variable_bindings, 'digraph {\n    "4" [label="pred(A,B)"]\n    "5" [label="g1(A,C)"]\n    "6" [label="g11(A,D)"]\n    "7" [label="g12(b,C)"]\n    "8" [label="g2(c,B)"]\n    "4" -> "5"\n    "5" -> "6"\n    "5" -> "7"\n    "4" -> "8"\n}').
-expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6944" [label="print(test)"]\n    "6945" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6946" [label="app([3],[4],A)"]\n    "6947" [label="print(3)"]\n    "6948" [label="app([],[4],B)"]\n    "6949" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6950" [label="print(1)"]\n    "6951" [label="app([2],[3,4],[2,3,4])"]\n    "6952" [label="print(2)"]\n    "6953" [label="app([],[3,4],[3,4])"]\n    "6954" [label="print(done)"]\n    "6945" -> "6946"\n    "6946" -> "6947"\n    "6946" -> "6948"\n    "6945" -> "6949"\n    "6949" -> "6950"\n    "6949" -> "6951"\n    "6951" -> "6952"\n    "6951" -> "6953"\n}').
-expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12507" [label="print(failure_test)"]\n    "12508" [label="append([1],[2],[3])"]\n}').
-expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16800" [label="member_square([1,a,3])"]\n    "16801" [label="member(A,[1,a,3])"]\n    "16802" [label="B is 1*1"]\n    "16803" [label="print(1)"]\n    "16804" [label="B is a*a"]\n    "16800" -> "16801"\n    "16800" -> "16802"\n    "16800" -> "16803"\n    "16800" -> "16804"\n}').
+expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6938" [label="print(test)"]\n    "6939" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6940" [label="app([3],[4],A)"]\n    "6941" [label="print(3)"]\n    "6942" [label="app([],[4],B)"]\n    "6943" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6944" [label="print(1)"]\n    "6945" [label="app([2],[3,4],[2,3,4])"]\n    "6946" [label="print(2)"]\n    "6947" [label="app([],[3,4],[3,4])"]\n    "6948" [label="print(done)"]\n    "6939" -> "6940"\n    "6940" -> "6941"\n    "6940" -> "6942"\n    "6939" -> "6943"\n    "6943" -> "6944"\n    "6943" -> "6945"\n    "6945" -> "6946"\n    "6945" -> "6947"\n}').
+expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12498" [label="print(failure_test)"]\n    "12499" [label="append([1],[2],[3])"]\n}').
+expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16785" [label="member_square([1,a,3])"]\n    "16786" [label="member(A,[1,a,3])"]\n    "16787" [label="B is 1*1"]\n    "16788" [label="print(1)"]\n    "16789" [label="B is a*a"]\n    "16785" -> "16786"\n    "16785" -> "16787"\n    "16785" -> "16788"\n    "16785" -> "16789"\n}').
 :- endif.
 
 

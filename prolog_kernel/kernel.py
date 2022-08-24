@@ -38,12 +38,13 @@ import sys
 from inspect import getmembers, isclass
 from ipykernel.kernelbase import Kernel
 from jupyter_core.paths import jupyter_config_path
-from traitlets import Unicode, Dict
-from traitlets.config.loader import PyFileConfigLoader, ConfigFileNotFound
+from traitlets import Bool, Dict, Unicode
+from traitlets.config.loader import ConfigFileNotFound, PyFileConfigLoader
 
-from prolog_kernel.prolog_kernel_base_implementation import PrologKernelBaseImplementation
 import prolog_kernel.swi_kernel_implementation
 import prolog_kernel.sicstus_kernel_implementation
+
+from prolog_kernel.prolog_kernel_base_implementation import PrologKernelBaseImplementation
 
 
 # Enable logging
@@ -64,7 +65,11 @@ class PrologKernel(Kernel):
     banner = kernel_name
 
 
-    # Define default configuration options for implementation_id and implementation_data
+    # Define default configuration options
+
+    # If set to True, a log file is created by the Prolog server
+    server_logging = Bool(False).tag(config=True)
+
 
     # The ID of the Prolog implementation which is used to execute code.
     # It is required that the implementation_data dictionary contains an item with this key.

@@ -13,7 +13,7 @@ swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
 sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
-:- use_module(logging, [create_log_file/0, log/1, log/2]).
+:- use_module(logging, [log/1, log/2]).
 :- use_module(jupyter, []).
 :- use_module(request_handling, [loop/3]).
 :- use_module(term_handling, [assert_sld_data/4]).
@@ -21,7 +21,6 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 jsonrpc_server_start :-
   setup,
-  logging:create_log_file,
   % Start the loop handling requests from the client
   request_handling:loop(continue, [], _ContOut).
 

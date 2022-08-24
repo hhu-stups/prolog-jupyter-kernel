@@ -1,8 +1,8 @@
 
 :- module(logging,
-    [create_log_file/0,
-     log/1,  % log(+Term)
-     log/2   % log(+Control, +Arguments)
+    [create_log_file/1,  % create_log_file(-IsSuccess)
+     log/1,              % log(+Term)
+     log/2               % log(+Control, +Arguments)
     ]).
 
 
@@ -19,11 +19,8 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
   log_stream/1.
 
 
-logging(true).
-
-
-create_log_file :-
-  logging(true),
+% create_log_file(-IsSuccess)
+create_log_file(true) :-
   % Open a log file (logging to stdout would send the messages to the client)
   % On Windows platforms, opening a file with SICStus which is alread opened by another process (i.e. another Prolog server) fails
   % Therefore separate log files are created for each Prolog implementation
@@ -32,8 +29,8 @@ create_log_file :-
   catch(open(LogFileName, write, Stream), _Exception, fail),
   !,
   assert(log_stream(Stream)).
-create_log_file.
-% Logging not configured or no new log file could be opened
+create_log_file(false).
+% No new log file could be opened
 
 
 log(List) :-
@@ -44,11 +41,10 @@ log(Term) :-
   log('~w~n', Term).
 
 log(Control, Arguments) :-
-  logging(true),
   % Write to the log file
   log_stream(Stream),
   !,
   format(Stream, Control, Arguments),
   flush_output(Stream).
 log(_Control, _Arguments).
-% Logging not configured or no new log file could be opened
+% No new log file could be opened

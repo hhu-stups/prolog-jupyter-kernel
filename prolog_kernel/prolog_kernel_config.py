@@ -1,5 +1,9 @@
 c = get_config()
 
+## If set to True, a log file is created by the Prolog server
+# Default:
+# c.PrologKernel.server_logging = False
+
 ## The ID of the Prolog implementation which is used to execute code.
 # Default:
 # c.PrologKernel.implementation_id = "swi"

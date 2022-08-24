@@ -57,7 +57,8 @@ The kernel can be configured by defining a Python config file named `prolog_kern
 
 **Note:** If a config file exists in the current working directory, its configuration overrides values from other configuration files.
 
-In general, the kernel can be configured to use a different Prolog implementation, Prolog server (which is responsible for code execution), and kernel implementation. This can be achieved by configuring these two options:
+In general, the kernel can be configured to use a different Prolog implementation, Prolog server (which is responsible for code execution), and kernel implementation. The following options can be configured:
+- `server_logging`: If set to `True`, a log file is created by the Prolog server
 - `implementation_id`: The ID of the Prolog implementation which is used to execute code
   - For SWI- and SICStus Prolog, the IDs `swi` and `sicstus` are expected.
 - `implementation_data`: The implementation specific data which is needed to run the Prolog server for code execution.
