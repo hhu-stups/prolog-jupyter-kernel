@@ -70,12 +70,11 @@ class PrologKernel(Kernel):
     # If set to True, a log file is created by the Prolog server
     server_logging = Bool(False).tag(config=True)
 
-
     # The ID of the Prolog implementation which is used to execute code.
     # It is required that the implementation_data dictionary contains an item with this key.
     implementation_id = Unicode('swi').tag(config=True)
 
-    # The default program argutments are needed to check if they were overriden in a configuration file or if the default Prolog server code is to be used
+    # The default program argutments for SWI- and SICStus Prolog
     default_program_arguments = {
         "swi": ["swipl",
                 "-l", "prolog_server/jsonrpc_server.pl",
@@ -93,8 +92,11 @@ class PrologKernel(Kernel):
     # - "success_response": The output which is displayed if a query succeeds without any variable bindings
     # - "error_prefix": The prefix output for error messages
     # - "informational_prefix": The prefix output for informational messages
-    # - "program_arguments": The command line arguments with which the Prolog server can be started
-    #                        If this differs from the default value, an absolute path or one relative to the location of the Jupyter notebook needs to be provided
+    # - "program_arguments": The command line arguments (a list of strings) with which the Prolog server can be started
+    #                        For SWI- and SICStus Prolog, the default Prolog server can be used by configuring the string "default"
+    #                        In that case, the following arguments are used (where the file path is extended to be absolute)
+    #                        SWI-Prolog:     ["swipl", "-l", "prolog_server/jsonrpc_server.pl", "-t", "jsonrpc_server_start"],
+    #                        SICStus Prolog: ["sicstus", "-l", "prolog_server/jsonrpc_server.pl", "--goal", "jsonrpc_server_start;halt.", "--nologo"]
     # Additionally, a "kernel_implementation_path" (which needs to be absolute) can be provided.
     # The corresponding module needs to define a class PrologKernelImplementation as a subclass of PrologKernelBaseImplementation.
     # It can be used to override the kernel's behavior.
@@ -104,14 +106,14 @@ class PrologKernel(Kernel):
             "success_response": "true",
             "error_prefix": "ERROR: ",
             "informational_prefix": "% ",
-            "program_arguments": default_program_arguments["swi"]
+            "program_arguments": "default"
         },
         "sicstus": {
             "failure_response": "no",
             "success_response": "yes",
             "error_prefix": "! ",
             "informational_prefix": "% ",
-            "program_arguments": default_program_arguments["sicstus"]
+            "program_arguments": "default"
         }
     }).tag(config=True)
 

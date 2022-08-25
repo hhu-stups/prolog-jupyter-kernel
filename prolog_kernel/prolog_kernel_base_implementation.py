@@ -52,23 +52,18 @@ class PrologKernelBaseImplementation:
 
     def start_prolog_server(self):
         """Tries to (re)start the prolog server process."""
-        # Get the current working directory so that it can be reset to the previous value if it has to be changed
-        previous_cwd = os.getcwd()
-        current_cwd = previous_cwd
-
-        # Check if the program arguments to start the Prolog server with were overriden in a configuration file
+        # Check if the Prolog server is to be started with the default program arguments
+        # Otherwise, the provided path needs to be absolute or relative to the current working directory
         program_arguments = self.implementation_data["program_arguments"]
-        if program_arguments == self.kernel.default_program_arguments[self.implementation_id]:
-            # The default Prolog server code is to be used
-            # The default configuration contains the path to the server code relative to the directory this file is located in
-            # Set the current working directory to this location
-            os.chdir(path)
-            current_cwd = path
-            # TODO in this case, no files can be loaded (but works if the same path is given as an absolute path?!)
-        # Otherwise, the path needs to be absolute or relative to the current working directory
+        if program_arguments == "default":
+            # Use the default
+            program_arguments = self.kernel.default_program_arguments[self.implementation_id]
+            # The third element of the list is the path to the Prolog source code relative to the directory this file is located in
+            # In order for it to be found, the path needs to be extended by the location of this file
+            program_arguments[2] = os.path.join(path, program_arguments[2])
 
         # Log the program arguments and the directory from which the program is tried to be started
-        self.logger.debug('Trying to start the Prolog server from ' + str(current_cwd) + ' with arguments: ' + str(program_arguments))
+        self.logger.debug('Trying to start the Prolog server from ' + str(os.getcwd()) + ' with arguments: ' + str(program_arguments))
 
         # Kill the running Prolog server
         self.kill_prolog_server()
@@ -90,16 +85,13 @@ class PrologKernelBaseImplementation:
             dialect_response_dict = self.server_request(0, 'dialect', log_response=False)
             self.logger.debug("Started the Prolog server for dialect '" + dialect_response_dict["result"] + "'")
             self.is_server_restart_required = False
-            # If logging is configured for the server, send a request to create a log file
+            # If logging is configured for the server, send a request to create a log file and thereby enable logging
             if self.kernel.server_logging == True:
                 logging_response = self.server_request(0, 'enable_logging', log_response=False)
                 if logging_response == 'false':
                     self.logger.debug('No log file could be created by the Prolog server')
         except Exception as exception:
             raise Exception("The Prolog server could not be started with the arguments " + str(program_arguments))
-        finally:
-            # Reset the current working directory to the previous value
-            os.chdir(previous_cwd)
 
 
     def handle_signal_interrupt(self, signal_received, frame):
