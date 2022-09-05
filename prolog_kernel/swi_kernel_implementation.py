@@ -51,8 +51,8 @@ class PrologKernelImplementation(PrologKernelBaseImplementation):
 
             if jupyter_data != {}:
                 # Append the jupyter docs
-                jupyter_docs_plain += '\n\n----------------------------------------------------------------------------\n\n' + jupyter_data['text/plain']
-                jupyter_docs_md += '<br>----------------------------------------------------------------------------<br><br>' + jupyter_data['text/markdown']
+                jupyter_docs_plain += '\n\n' + '_'*80 + '\n\n' + jupyter_data['text/plain']
+                jupyter_docs_md += '<br>' + '_'*80 + '<br><br>' + jupyter_data['text/markdown']
 
             data = {'text/plain': jupyter_docs_plain, 'text/markdown': jupyter_docs_md}
 

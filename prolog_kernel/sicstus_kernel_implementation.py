@@ -33,7 +33,7 @@ class PrologKernelImplementation(PrologKernelBaseImplementation):
 
     def get_predicate_doc_links(self):
         """
-        Retrieves the links to the documentation of all predicates for the current Prolog version from its manual.
+        Retrieves the links to the documentation of all predicates for the current Prolog version from the Predicate Index page (e.g. https://sicstus.sics.se/sicstus/docs/latest/html/sicstus.html/Predicate-Index.html for the latest version).
         The link texts look like the following: 'zip/0 (built-in):', 'assert/[1,2] (built-in, ref page):'
 
         Returns a dictionary where the keys are the names and arities of the built-in predicates (the part of the link text before the bracket).
@@ -128,8 +128,8 @@ class PrologKernelImplementation(PrologKernelBaseImplementation):
 
             if jupyter_data != {}:
                 # Append the jupyter docs
-                jupyter_docs_plain += '\x1b[0m----------------------------------------------------------------------------\n\n' + jupyter_data['text/plain']
-                jupyter_docs_md += '----------------------------------------------------------------------------<br><br>' + jupyter_data['text/markdown']
+                jupyter_docs_plain += '\x1b[0m' + '_'*80 + '\n\n' + jupyter_data['text/plain']
+                jupyter_docs_md += '' + '_'*80 + '<br><br>' + jupyter_data['text/markdown']
 
             data = {'text/plain': jupyter_docs_plain, 'text/markdown': jupyter_docs_md}
 

@@ -9,7 +9,7 @@
      %halt/0,
      help/0,
      previous_query_time/2,     % previous_query_time(-Goal, -Runtime)
-     print_previous_queries/1,  % print_previous_queries(+Ids)
+     print_queries/1,           % print_queries(+Ids)
      print_sld_tree/1,          % print_sld_tree(+Goal)
      print_stack/0,             % print_stack
      print_table/1,             % print_table(+Goal)
@@ -30,7 +30,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(lists), [reverse/2]).
 :- use_module(library(codesio), [read_term_from_codes/3, write_term_to_codes/3, format_to_codes/3]).
 :- use_module(logging, [log/1, log/2]).
-:- use_module(output, [query_data/4, switch_debug_mode_on_for_breakpoints/0]).
+:- use_module(output, [query_data/4, debug_mode_for_breakpoints/0]).
 :- use_module(variable_bindings, [var_bindings/1]).
 
 
@@ -149,9 +149,9 @@ predicate_doc('jupyter:previous_query_time/2', Doc) :-
     '\n\n    Goal is the previously executed goal.',
     '\n    Time is the time in milliseconds it took the query to complete.'
   ], Doc).
-predicate_doc('jupyter:print_previous_queries/1', Doc) :-
+predicate_doc('jupyter:print_queries/1', Doc) :-
   atom_concat([
-    'jupyter:print_previous_queries(+Ids)',
+    'jupyter:print_queries(+Ids)',
     '\n\n    Prints previous queries which were exectued in requests with IDs in Ids.',
     '\n\n    Any $Var terms might be replaced by the variable\'s name.',
     '\n    This is the case if a previous query with ID in Ids contains Var.',
@@ -291,7 +291,7 @@ trace(Goal) :-
 % Switches on trace mode, calls the goal Goal and switches debug mode off.
 % Since the last line of the output contains the debugging message of nodebug/1, this line is removed.
 % If any breakpoints exist, debug mode is switched back on again so that the debugger can stop at a breakpoint.
-% All ports are unleashed so that the debugger does not stop at a breakpoint to wait for user input.
+% All ports are unleashed so that the debugger does not stop at an invocation to wait for user input.
 % However, breakpoints are not affected by this.
 trace(Goal) :-
   catch(retractall(output:remove_output_lines_for(trace_debugging_messages)), _Exception, true),
@@ -299,8 +299,10 @@ trace(Goal) :-
   switch_trace_mode_on,
   call(MGoal),
   !,
+  % Switch off trace mode so that no more debugging messages are printed
+  % Afterwards, it needs to be checked if debug mode should be switched on again
   nodebug,
-  output:switch_debug_mode_on_for_breakpoints.
+  output:debug_mode_for_breakpoints.
 
 
 switch_trace_mode_on :-
@@ -354,7 +356,7 @@ print_variable_bindings([Name=Value|Bindings]) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Previous query (time)
+% Previous query data
 
 % previous_query_time(-Goal, -Runtime)
 %
@@ -367,27 +369,27 @@ previous_query_time(_Goal, _Runtime) :-
   fail.
 
 
-% print_previous_queries(+Ids)
+% print_queries(+Ids)
 %
 % Prints the previous queries with ids in Ids in a way that they can be
 % - copied to a cell and executed right away or
 % - expanded with a head to define a predicate
 % If a query contains a term of the form $Var and a previous query contains the variable Var, $Var is replaced by the variable name.
-print_previous_queries(Ids) :-
+print_queries(Ids) :-
   findall(TermData-OriginalTermData, (member(Id, Ids), output:query_data(Id, _Runtime, TermData, OriginalTermData)), QueriesData),
-  print_previous_queries(QueriesData, []).
+  print_queries(QueriesData, []).
 
 
-% print_previous_queries(+QueriesData, +PreviousNameVarPairs)
-print_previous_queries([], _PreviousNameVarPairs) :- !.
-print_previous_queries([QueryData], PreviousNameVarPairs) :-
+% print_queries(+QueriesData, +PreviousNameVarPairs)
+print_queries([], _PreviousNameVarPairs) :- !.
+print_queries([QueryData], PreviousNameVarPairs) :-
   !,
   print_previous_query(QueryData, PreviousNameVarPairs, _NewPreviousNameVarPairs, QueryAtom),
   format('~w.~n', [QueryAtom]).
-print_previous_queries([QueryData|QueriesData], PreviousNameVarPairs) :-
+print_queries([QueryData|QueriesData], PreviousNameVarPairs) :-
   print_previous_query(QueryData, PreviousNameVarPairs, NewPreviousNameVarPairs, QueryAtom),
   format('~w,~n', [QueryAtom]),
-  print_previous_queries(QueriesData, NewPreviousNameVarPairs).
+  print_queries(QueriesData, NewPreviousNameVarPairs).
 
 
 % print_previous_query(+QueryData, +PreviousNameVarPairs, -NewPreviousNameVarPairs, -QueryAtom)

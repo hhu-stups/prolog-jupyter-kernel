@@ -1,6 +1,6 @@
 """
 Base class for the actual execution of requests received by the Prolog Jupyter kernel.
-It provides code for starting a Prolog server and communication with it.
+It provides code for starting a Prolog server and communicating with it.
 Additionally, code completion and inspection are implemented.
 
 By subclassing this, basically all functionality of the Prolog kernel can be overriden.
@@ -46,12 +46,8 @@ class PrologKernelBaseImplementation:
         self.retrieve_predicate_information()
 
 
-    def set_implementation_data(self, implementation_data):
-        self.implementation_data = implementation_data
-
-
     def start_prolog_server(self):
-        """Tries to (re)start the prolog server process."""
+        """Tries to (re)start the Prolog server process with the configured arguments."""
         # Check if the Prolog server is to be started with the default program arguments
         # Otherwise, the provided path needs to be absolute or relative to the current working directory
         program_arguments = self.implementation_data["program_arguments"]
@@ -104,7 +100,7 @@ class PrologKernelBaseImplementation:
 
 
     def kill_prolog_server(self):
-        """Kills the prolog server process if it is still running."""
+        """Kills the Prolog server process if it is still running."""
         if self.prolog_proc is not None:
             self.logger.debug(self.implementation_id + ': Kill Prolog server')
             self.prolog_proc.kill()
@@ -128,7 +124,7 @@ class PrologKernelBaseImplementation:
             response_dict = self.server_request(0, 'call', {'code':'jupyter:update_completion_data.'}, log_response=False)
             self.current_predicates = response_dict['result']['1']['predicate_atoms']
 
-            # Retrieve the documentation texts which are shown when a predicate provided by the Prolog server in the module 'Jupyter' is inspected
+            # Retrieve the documentation texts which are shown when a predicate provided by the Prolog server in the module 'jupyter' is inspected
             jupyter_predicate_docs_dict = self.server_request(0, 'jupyter_predicate_docs', log_response=False)
             self.jupyter_predicate_docs = jupyter_predicate_docs_dict["result"]
 
@@ -301,10 +297,10 @@ class PrologKernelBaseImplementation:
     def handle_success_response(self, response_dict):
         """
         The dictionary response_dict contains the key 'result'.
-        The corresponding value is a dictionary containing the results of the Prolog terms read from the cell.
+        The corresponding value contains the results of the Prolog terms read from the cell.
         These are given as a dictionary where the keys are integers starting from 1.
 
-        Each of the results has a status which is either 'halt', 'success', or 'error'.
+        Each of the results is a dictionary with a status member which is either 'halt', 'success', or 'error'.
         For each result, a corresponding response is sent to the client.
 
         In case of CLPFD a variable might not have been assigned a single value, but a domain instead.
@@ -390,9 +386,7 @@ class PrologKernelBaseImplementation:
                 if output != "":
                     self.send_response_display_data(str(output))
 
-
-                type = term_result["type"]
-                if type == "query":
+                if term_result["type"] == "query":
                     additional_style = ''
                     # Send the variable names and values or a success or failure response to the frontend
                     bindings = term_result["bindings"]
@@ -502,6 +496,26 @@ class PrologKernelBaseImplementation:
         }
 
 
+    def send_response_display_data(self, text, additional_style=""):
+        # The display data of the response always needs to contain plain text
+        # For example, this is shown in Jupyter Console
+        # Additionally, markdown text is provided for a formatted output in a Jupyter notebook
+        # In order to be able to export notebooks as LaTeX, latex text needs to be returned
+        display_data = {
+            'data': {
+                'text/plain': text,
+                'text/markdown': '<pre style="' + self.output_text_style + additional_style + '">' + text + '</pre>',
+                'text/latex': text.replace('\n', '\\\\\n ') # TODO adjust for latex
+            },
+            'metadata': {}}
+        self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+
+
+    ############################################################################
+    # Handling of additional data
+    ############################################################################
+
+
     def handle_additional_data(self, dict):
         """
         Handles additional data which may be present in the dict.
@@ -509,103 +523,25 @@ class PrologKernelBaseImplementation:
         """
         is_failure = False
 
-        if 'retracted_clauses' in dict:
-            is_failure = is_failure or self.handle_retracted_clauses(dict['retracted_clauses'])
-        if 'print_table' in dict:
-            is_failure = is_failure or self.handle_print_table(dict['print_table'])
-        if 'print_sld_tree' in dict:
-            is_failure = is_failure or self.handle_print_graph(dict['print_sld_tree'])
-        if 'print_transition_graph' in dict:
-            is_failure = is_failure or self.handle_print_graph(dict['print_transition_graph'])
-        if 'set_prolog_impl_id' in dict:
-            is_failure = is_failure or self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
         if 'predicate_atoms' in dict:
             is_failure = is_failure or self.handle_completion_data_update(dict['predicate_atoms'])
+        if 'print_sld_tree' in dict:
+            is_failure = is_failure or self.handle_print_graph(dict['print_sld_tree'])
+        if 'print_table' in dict:
+            is_failure = is_failure or self.handle_print_table(dict['print_table'])
+        if 'print_transition_graph' in dict:
+            is_failure = is_failure or self.handle_print_graph(dict['print_transition_graph'])
+        if 'retracted_clauses' in dict:
+            is_failure = is_failure or self.handle_retracted_clauses(dict['retracted_clauses'])
+        if 'set_prolog_impl_id' in dict:
+            is_failure = is_failure or self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
 
         return is_failure
 
 
-    def handle_retracted_clauses(self, retracted_clauses):
-        """
-        Handles the displaying of clauses which were retracted.
-        Since this might not always be of interest for the user, a HTML <details> tag is used with which information can be displayed which can be expanded.
-        The dictionary retracted_clauses contains the retracted clauses.
-        It contains a single element of which the key is the predicate spec and the value is a string of the actual clauses which were retracted as output by listing/1.
-
-        Example
-        ------
-        {'user:app/3': 'app([], A, A) :- !.\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n'}
-        """
-        if retracted_clauses:
-            style = """
-            <style>
-            details  {
-            """ + self.output_text_style + """
-            }
-
-            details > summary {
-              cursor: pointer;
-            }
-            </style>
-            """
-
-            pred_spec = list(retracted_clauses.keys())[0]
-            listing = retracted_clauses[pred_spec]
-
-            # Create an expandable message saying that clauses have been retracted
-            html = '<details><summary>Previously defined clauses of ' + pred_spec + ' were retracted (click to expand)</summary><pre>' + listing + '</pre></details>'
-            plain_text = 'Previously defined clauses of ' + pred_spec + ' were retracted:\n' + listing
-
-            display_data = {
-                'data': {
-                    'text/plain': plain_text,
-                    'text/html': style + html },
-                'metadata': {
-                    'application/json' : {}}}
-            self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
-
-
-    def handle_print_table(self, print_table_dict):
-        """
-        The dictionary print_table_dict contains the members 'ValuesLists' and 'VariableNames'.
-        The values are used to populate a table which is sent to the client.
-
-        Example
-        ------
-        For the cell code
-          "print_table((member(Member, [10,20,30]), Square is Member*Member))."
-        the variables dictionary is:
-          {'ValuesLists': [['10', '100'], ['20', '400'], ['30', '900']], 'VariableNames': ['Member', 'Square']}
-        The markdown text sent to the frontend is:
-          Member | Square |
-          :- | :- |
-          10 | 100 |
-          20 | 400 |
-          30 | 900 |
-        """
-        values_lists = print_table_dict["ValuesLists"]
-        variable_names = print_table_dict["VariableNames"]
-
-        table_header_markdown_string = ""
-        table_markdown_string = ""
-
-        # Create a header line with the variable names
-        for variable_name in variable_names:
-            table_header_markdown_string = table_header_markdown_string + str(variable_name) + " | "
-            table_markdown_string = table_markdown_string + ":- | "
-
-        table_markdown_string = table_header_markdown_string  + "\n" + table_markdown_string
-
-        # For each values list, add a markdown table line
-        for values_list in values_lists:
-            line_markdown_string = ""
-            for value in values_list:
-                line_markdown_string = line_markdown_string + str(value) + " | "
-
-            table_markdown_string = table_markdown_string + "\n" + line_markdown_string
-
-        display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$').replace('~', '\~')}, 'metadata': {}}
-        self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+    def handle_completion_data_update(self, predicate_atoms):
+        """The user requested to update the predicate data used for code completion."""
+        self.current_predicates = predicate_atoms
 
 
     def handle_print_graph(self, graph_file_content):
@@ -661,26 +597,89 @@ class PrologKernelBaseImplementation:
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
 
 
+    def handle_print_table(self, print_table_dict):
+        """
+        The dictionary print_table_dict contains the members 'ValuesLists' and 'VariableNames'.
+        The values are used to populate a table which is sent to the client.
+
+        Example
+        ------
+        For the cell code
+          "print_table((member(Member, [10,20,30]), Square is Member*Member))."
+        the variables dictionary is:
+          {'ValuesLists': [['10', '100'], ['20', '400'], ['30', '900']], 'VariableNames': ['Member', 'Square']}
+        The markdown text sent to the frontend is:
+          Member | Square |
+          :- | :- |
+          10 | 100 |
+          20 | 400 |
+          30 | 900 |
+        """
+        values_lists = print_table_dict["ValuesLists"]
+        variable_names = print_table_dict["VariableNames"]
+
+        table_header_markdown_string = ""
+        table_markdown_string = ""
+
+        # Create a header line with the variable names
+        for variable_name in variable_names:
+            table_header_markdown_string = table_header_markdown_string + str(variable_name) + " | "
+            table_markdown_string = table_markdown_string + ":- | "
+
+        table_markdown_string = table_header_markdown_string  + "\n" + table_markdown_string
+
+        # For each values list, add a markdown table line
+        for values_list in values_lists:
+            line_markdown_string = ""
+            for value in values_list:
+                line_markdown_string = line_markdown_string + str(value) + " | "
+
+            table_markdown_string = table_markdown_string + "\n" + line_markdown_string
+
+        display_data = {'data': {'text/plain': table_markdown_string, 'text/markdown': table_markdown_string.replace('$', '\$').replace('~', '\~')}, 'metadata': {}}
+        self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+
+
+    def handle_retracted_clauses(self, retracted_clauses):
+        """
+        Handles the displaying of clauses which were retracted.
+        Since this might not always be of interest for the user, a HTML <details> tag is used with which information can be displayed which can be expanded.
+        The dictionary retracted_clauses contains the retracted clauses.
+        It contains a single element of which the key is the predicate spec and the value is a string of the actual clauses which were retracted as output by listing/1.
+
+        Example
+        ------
+        {'user:app/3': 'app([], A, A) :- !.\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n'}
+        """
+        if retracted_clauses:
+            style = """
+            <style>
+            details  {
+            """ + self.output_text_style + """
+            }
+
+            details > summary {
+              cursor: pointer;
+            }
+            </style>
+            """
+
+            pred_spec = list(retracted_clauses.keys())[0]
+            listing = retracted_clauses[pred_spec]
+
+            # Create an expandable message saying that clauses have been retracted
+            html = '<details><summary>Previously defined clauses of ' + pred_spec + ' were retracted (click to expand)</summary><pre>' + listing + '</pre></details>'
+            plain_text = 'Previously defined clauses of ' + pred_spec + ' were retracted:\n' + listing
+
+            display_data = {
+                'data': {
+                    'text/plain': plain_text,
+                    'text/html': style + html },
+                'metadata': {
+                    'application/json' : {}}}
+            self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
+
+
     def handle_set_prolog_impl(self, prolog_impl_id):
         """The user requested to change the active Prolog implementation, which needs to be handled by the kernel."""
         return self.kernel.change_prolog_implementation(prolog_impl_id)
-
-
-    def handle_completion_data_update(self, predicate_atoms):
-        """The user requested to update the predicate data used for code completion."""
-        self.current_predicates = predicate_atoms
-
-
-    def send_response_display_data(self, text, additional_style=""):
-        # The display data of the response always needs to contain plain text
-        # For example, this is shown in Jupyter Console
-        # Additionally, markdown text is provided for a formatted output in a Jupyter notebook
-        # In order to be able to export notebooks as LaTeX, latex text needs to be returned
-        display_data = {
-            'data': {
-                'text/plain': text,
-                'text/markdown': '<pre style="' + self.output_text_style + additional_style + '">' + text + '</pre>',
-                'text/latex': text.replace('\n', '\\\\\n ') # TODO adjust for latex
-            },
-            'metadata': {}}
-        self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)

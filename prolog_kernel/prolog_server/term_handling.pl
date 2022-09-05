@@ -14,7 +14,7 @@
 %   - Head :- Body
 %   - Head --> Body
 %   - Head (if the request contains more than one term)
-% - queries:
+% - queries (including terms following '?-'):
 %   - retry or jupyter:retry
 %   - cut or jupyter:cut
 %   - halt or jupyter:halt
@@ -29,17 +29,16 @@
 %   - a call of trace: trace/0, trace/1 or trace/2
 %   - a call of leash/1
 %   - a call of abolish/1 or abolish/2(in case of SICStus Prolog)
-%   - any term following ?-
 %   - any other term which is the only one of a request
 
 
 :- module(term_handling,
-    [handle_term/6,            % handle_term(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, -Cont)
+    [assert_sld_data/4,        % assert_sld_data(Port, Goal, Frame, ParentFrame)
      declaration_end/1,        % declaration_end(+LoadFile)
-     test_definition_end/1,    % test_definition_end(+LoadFile)
+     handle_term/6,            % handle_term(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, -Cont)
      pred_definition_specs/1,  % pred_definition_specs(PredDefinitionSpecs)
      term_response/1,          % term_response(JsonResponse)
-     assert_sld_data/4         % assert_sld_data(Port, Goal, Frame, ParentFrame)
+     test_definition_end/1     % test_definition_end(+LoadFile)
     ]).
 
 
@@ -50,7 +49,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
 :- use_module(library(lists), [delete/3, reverse/2, nth1/3]).
 :- use_module(logging, [log/1, log/2]).
-:- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0, assert_query_start_time/0]).
+:- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jsonrpc, [send_error_reply/3]).
 :- use_module(request_handling, [loop/3]).
 
@@ -62,14 +61,14 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- dynamic
-  is_retry/1,               % is_retry(IsRetry)
-  test_definition_stream/1, % test_definition_stream(TestDefinitionStream)
-                            % TestDefinitionStream is a write stream if the current request contains a begin_tests request.
   declaration_stream/1,     % declaration_stream(DeclarationStream)
                             % DeclarationStream is a write stream if the current request contains declaration directives.
+  is_retry/1,               % is_retry(IsRetry)
   pred_definition_specs/1,  % pred_definition_specs(PredDefinitionSpecs)
                             % PredDefinitionSpecs is a list of PredName/PredArity elements for every predicate which is defined by the current request.
-  term_response/1.          % term_response(JsonResponse)
+  term_response/1,          % term_response(JsonResponse)
+  test_definition_stream/1. % test_definition_stream(TestDefinitionStream)
+                            % TestDefinitionStream is a write stream if the current request contains a begin_tests request.
 
 
 test_file_base_name('jupyter_tests').
@@ -163,9 +162,10 @@ handle_term(Head, false, _CallRequestId, _Stack, Bindings, continue) :-
 % Furthermore, a retry is not possible and a directive's variable bindings are not sent to the client.
 
 % For SICStus, declarations need to be handled specially as they must not appear in a query.
-% Therefore, all declarations of a query are written to a file which is loaded.
+% Therefore, all declarations of a request are written to a file which is loaded.
 % Thus, all declarations which are to be valid at the same time, need to be defined in a single request.
-% As the declaration file is loaded when all terms of a request have been handled, any clauses which were defined for a predicate for which a declaration was defined, do not exist after the declarations.
+% The declaration file is loaded when all terms of a request have been handled.
+% When declaring a property of a predicate for which clauses had been asserted before, these do not exist anymore after the declaration.
 % Therefore, a cell declaring predicate properties cannot contain clauses for the same predicate.
 
 % handle_directive(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, +Cont)
@@ -487,7 +487,7 @@ handle_query_term(Term, IsDirective, CallRequestId, Stack, Bindings, LoopCont, C
   ; otherwise ->
     % Create a term_data(TermAtom, Bindings) term.
     % If the term is a query, the term_data term is used to assert the original term data in case terms of the form $Var were replaced.
-    % The term data is needed when accessing previous queries (e.g. with jupyter:print_previous_queries/1).
+    % The term data is needed when accessing previous queries (e.g. with jupyter:print_queries/1).
     % Bindings needs to be copied so that the term can be read from the atom without any of the variables being instantiated by calling the term.
     copy_term(Bindings, BindingsCopy),
     write_term_to_atom(Term, Bindings, TermAtom),
@@ -524,20 +524,20 @@ handle_query_term_(halt, _IsDirective,_CallRequestId, _Stack, _Bindings, _Origin
   % By unifying Cont=done, the loop reading and handling messages is stopped
   handle_halt.
 % jupyter predicates
+handle_query_term_(jupyter:print_sld_tree(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_print_sld_tree(Goal, Bindings).
+handle_query_term_(jupyter:print_stack, _IsDirective, CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_print_stack(Stack, CallRequestId).
 handle_query_term_(jupyter:print_table(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table_with_findall(Bindings, Goal).
 handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table(Bindings, ValuesLists, VariableNames).
-handle_query_term_(jupyter:print_sld_tree(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_print_sld_tree(Goal, Bindings).
 handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
 handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
 handle_query_term_(jupyter:update_completion_data, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_update_completion_data.
-handle_query_term_(jupyter:print_stack, _IsDirective, CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_print_stack(Stack, CallRequestId).
 % run_tests
 handle_query_term_(run_tests, _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests, CallRequestId, Stack, Bindings, Cont).
@@ -558,6 +558,7 @@ handle_query_term_(trace(_Pred, _Ports), _IsDirective, _CallRequestId, _Stack, _
 handle_query_term_(leash(_Ports), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   assert_error_response(exception, message_data(error, jupyter(leash_pred)), '', []).
 :- if(sicstus).
+% abolish
 handle_query_term_(abolish(Predicates), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continue) :- !,
   handle_abolish(abolish(Predicates), CallRequestId, OriginalTermData).
 handle_query_term_(abolish(Predicates, Options), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continus) :- !,
@@ -574,7 +575,7 @@ handle_query_term_(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalT
 % IsDirective=true if the Goal was encountered as a directive.
 %  In that case, no variable bindings are sent to the client.
 % CallRequestId is the ID of the current call request.
-%  It is needed for juypter:print_previous_queries/1.
+%  It is needed for juypter:print_queries/1.
 % Stack is a list containing atoms representing the previous queries which might have exited with a choicepoint and can therefore be retried.
 %  It is needed for retry/0 and cut/0 queries.
 % Bindings is a list of Name=Var pairs, where Name is the name of a variable Var occurring in the goal Goal.
@@ -766,10 +767,11 @@ same_var([_Binding|BindingsWithoutSingletons], Var) :-
 % handle_retry(+CallRequestId, +Stack)
 handle_retry(Stack) :-
   ( Stack = [_ActiveGoal|_RemainingStack] ->
-    % Tell caller where to send the reply
+    % Tell caller that the current query is a retry
     asserta(is_retry(true)),
+    % Redirect all output to a file and call statistics/2 to compute the runtime as would normally be done before calling a query
     output:redirect_output_to_file,
-    output:assert_query_start_time,
+    statistics(walltime, _Value),
     fail
   ; otherwise -> % No active call
     assert_error_response(no_active_call, null, '', [])
@@ -782,15 +784,13 @@ handle_retry(Stack) :-
 
 % If there is no active goal, an error message is sent to the client.
 % Otherwise, Cont=cut causes possible choice points of output:call_query_with_output_to_file/7 in handle_query/8 to be cut.
-% A message informing the user is output.
-% Additionally, if there is a previous goal which is now the active one, it is displayed.
+% A message informing the user about the new active query is displayed.
 
 % handle_cut(+Stack, -Cont)
 handle_cut(Stack, Cont) :-
-  log(cut),
   ( Stack = [_Active|RemainingStack] ->
     cut_message(RemainingStack, CutMessage),
-    assert_success_response(cut, [], CutMessage, []),
+    assert_success_response(query, [], CutMessage, []),
     Cont = cut
   ; otherwise -> % No active call
     assert_error_response(no_active_call, null, '', []),
@@ -799,9 +799,9 @@ handle_cut(Stack, Cont) :-
 
 
 % cut_message(+RemainingStack, -CutMessage)
-cut_message([], '% Successfully cut\n% There is no previous active goal') :- !.
+cut_message([], '% There is no previous active goal') :- !.
 cut_message([ActiveGoalAtom|_RemainingStack], CutMessage) :-
-  format_to_codes('% Successfully cut\n% The new active goal is: ~w', [ActiveGoalAtom], MessageCodes),
+  format_to_codes('% The new active goal is: ~w', [ActiveGoalAtom], MessageCodes),
   atom_codes(CutMessage, MessageCodes).
 
 
@@ -809,7 +809,7 @@ cut_message([ActiveGoalAtom|_RemainingStack], CutMessage) :-
 
 % Halt
 
-% If the server is to be halted, the loop reading and handling messages is stopped.
+% If the server is to be halted, the loop reading and handling messages is stopped so that the server process is stopped.
 % The type of the success reply sent to the client indicates that the server was halted and needs to be restarted for the next execution request.
 
 handle_halt :-
@@ -841,7 +841,7 @@ handle_print_table_with_findall(Bindings, Goal) :-
       assert_error_response(exception, ErrorMessageData, '', [])
     ; otherwise -> % success
       % Return the additional 'print_table' data
-      assert_success_response(print_table, [], Output, [print_table=json(['ValuesLists'=Results, 'VariableNames'=VarNames])])
+      assert_success_response(query, [], Output, [print_table=json(['ValuesLists'=Results, 'VariableNames'=VarNames])])
     ),
     !
   ; % findall_results_and_var_names/4 failed
@@ -856,7 +856,7 @@ handle_print_table_with_findall(Bindings, Goal) :-
 % It contains the data which is to be printed in the table.
 % VariableNames is [] or a list of ground terms which need to be of the same length as the values lists.
 handle_print_table(_Bindings, [], VariableNames) :- !,
-  assert_success_response(print_table, [], '', [print_table=json(['ValuesLists'=[], 'VariableNames'=VariableNames])]).
+  assert_success_response(query, [], '', [print_table=json(['ValuesLists'=[], 'VariableNames'=VariableNames])]).
 handle_print_table(Bindings, ValuesLists, VariableNames) :-
   % Get the length of the first list and make sure that all other lists have the same length
   ValuesLists = [ValuesList|RemainingValuesLists],
@@ -867,7 +867,7 @@ handle_print_table(Bindings, ValuesLists, VariableNames) :-
       % As not all of the values can be parsed to JSON (e.g. uninstantiated variables and compounds), they need to be made JSON parsable first by converting them to atoms
       findall(ValuesAtomList, (member(Values, ValuesLists), convert_to_atom_list(Values, Bindings, ValuesAtomList)), JsonParsableValuesLists),
       % Return the additional 'print_table' data
-      assert_success_response(print_table, [], '', [print_table=json(['ValuesLists'=JsonParsableValuesLists, 'VariableNames'=TableVariableNames])])
+      assert_success_response(query, [], '', [print_table=json(['ValuesLists'=JsonParsableValuesLists, 'VariableNames'=TableVariableNames])])
     ; otherwise -> % The variable names are invalid
       assert_error_response(exception, message_data(error, jupyter(invalid_table_variable_names)), '', [])
     )
@@ -1069,7 +1069,7 @@ json_parsable_results([Result|Results], [_VarName|VarNames], Bindings, [ResultAt
 
 % Print SLD Trees
 
-% Create content for a file representing the SLD tree of an execution in DOT.
+% Create content for a file representing the SLD tree of an execution that can be rendered with DOT.
 % The collection of the data needs to be handled differntly for SWI- and SICStus Prolog:
 % - SICStus: a breakpoint which is removed after the execution.
 % - SWI: user:prolog_trace_interception/4 is used that calls assert_sld_data/4 which succeeds if SLD data is to be collected (if a clause collect_sld_data/0 exists).
@@ -1392,7 +1392,7 @@ handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex) :-
   % Assert the result response
   assert_success_response(query, [], '', [print_transition_graph=GraphFileContentAtom]).
 handle_print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex).
-  % If some requirements are not fulfilled, the first clause asserts and error response and fails
+  % If some requirements are not fulfilled, the first clause asserts an error response and fails
 
 
 % module_name_expanded_pred_spec(+PredSpec, -MPredSpec)
@@ -1462,7 +1462,7 @@ handle_set_prolog_impl(_PrologImplementationID) :-
 % Reload the completion data
 
 % The user requested to reload the data used for code completion.
-% Finds all callable (built-in and exported) predicates.
+% Finds all predicates which are built-in or exported by a loaded module.
 % The client expects these to be part of the result as 'predicate_atoms'.
 
 
@@ -1525,7 +1525,7 @@ name_var_pairs([Variable|Variables], CurrentCharacterCode, [NameAtom=Variable|Bi
 % Print stack
 
 % Prints the stack used for juypter:retry/0 and jupyter:cut/0.
-% The active goal is marked by a preceding '->'.
+% The currently active query is printed at the top and indicated by a preceding '->'.
 
 % handle_print_stack(+Stack, +CallRequestId)
 handle_print_stack(Stack, CallRequestId) :-
@@ -1600,7 +1600,7 @@ retract_jupyter_discontiguous([PredSpec|PredSpecs]) :-
 % assert_success_response(+Type, +Bindings, +Output, +AdditionalData)
 %
 % Type is the type of the term read from the client.
-% It is one of: directive, clause_definition, query, cut, print_table
+% It is one of: directive, clause_definition, query
 % Bindings is a list of Name=Var pairs, where Name is the name of a variable Var occurring in the term.
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.

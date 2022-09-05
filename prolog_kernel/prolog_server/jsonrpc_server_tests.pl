@@ -477,7 +477,7 @@ test(member_cut_and_retry, [true(NumberRetryResult = ExpectedNumberRetryResult)]
   check_equality(AtomRetryResult, ExpectedAtomRetryResult),
   % Cut the choicepoint of 'member(Member, [a,b,c]).'
   CutRequest = 'cut.',
-  ExpectedCutResult = [type=cut,bindings=json([]),output='% Successfully cut\n% The new active goal is: member(Member,[1,2,3])'],
+  ExpectedCutResult = [type=query,bindings=json([]),output='% The new active goal is: member(Member,[1,2,3])'],
   send_call_with_single_success_result(CutRequest, 8, CutResult),
   check_equality(CutResult, ExpectedCutResult),
   % Retry previous goal 'member(Member, [1,2,3]).'
@@ -538,7 +538,7 @@ test(retry_and_cut_in_one_request, [true(Result = ExpectedResult)]) :-
                          '2'=json([status=success,type=query,bindings=json(['X'='2']),output='% Retrying goal: member(X,[1,2,3])\n']),
                          '3'=json([status=success,type=query,bindings=json(['Y'=a]),output='']),
                          '4'=json([status=success,type=query,bindings=json(['Y'=b]),output='% Retrying goal: member(Y,[a,b,c])\n']),
-                         '5'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% The new active goal is: member(X,[1,2,3])']),
+                         '5'=json([status=success,type=query,bindings=json([]),output='% The new active goal is: member(X,[1,2,3])']),
                          '6'=json([status=success,type=query,bindings=json(['X'='3']),output='% Retrying goal: member(X,[1,2,3])\n'])]),
   send_success_call(Request, 20, Result).
 
@@ -1054,7 +1054,7 @@ test(retry_and_cut_directives_for_directive, [true(Result = ExpectedResult)]) :-
   ExpectedResult = json(['1'=json([status=success,type=query,bindings=json(['X'='1']),output='']),
                          '2'=json([status=success,type=directive,bindings=json([]),output='']),
                          '3'=json([status=success,type=query,bindings=json(['X'='2']),output='% Retrying goal: member(X,[1,2,3])\n']),
-                         '4'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% There is no previous active goal']),
+                         '4'=json([status=success,type=query,bindings=json([]),output='% There is no previous active goal']),
                          '5'=json([status=error,error=json([code= -4713,message='No active call',data=json([prolog_message=''])])])]),
   send_success_call(Request, 9, Result).
 
@@ -1063,7 +1063,7 @@ test(retry_and_cut_directives, [true(Result = ExpectedResult)]) :-
   ExpectedResult = json(['1'=json([status=success,type=query,bindings=json(['X'='1']),output='']),
                          '2'=json([status=success,type=query,bindings=json(['Y'=a]),output='']),
                          '3'=json([status=success,type=query,bindings=json(['Y'=b]),output='% Retrying goal: member(Y,[a,b,c])\n']),
-                         '4'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% The new active goal is: member(X,[1,2,3])']),
+                         '4'=json([status=success,type=query,bindings=json([]),output='% The new active goal is: member(X,[1,2,3])']),
                          '5'=json([status=success,type=query,bindings=json(['X'='2']),output='% Retrying goal: member(X,[1,2,3])\n'])]),
   send_success_call(Request, 10, Result).
 
@@ -1205,6 +1205,7 @@ test(jupyter_trace, [true(DebuggingResult = ExpectedDebuggingResult)]) :-
   ExpectedDebuggingResult = [type=query,bindings=json([]),output='The debugger is switched off\nNo leashing\nUndefined predicates will raise an exception (error)\nThere are no breakpoints'],
   send_call_with_single_success_result(DebuggingRequest, 6, DebuggingResult).
 
+% As this test relies on invocation numbers, it likely fails after adjusting any
 test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   % Add a breakpoint which causes only the first argument of a app/3 goal to be printed
   AddBreakpointRequest = 'add_breakpoint(pred(app/3)-[print-[1], proceed], _BID).',
@@ -1223,19 +1224,19 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3379     13 Call: ^1 [1]\n *   3380     14 Call: ^1 []\n *   3380     14 Exit: ^1 []\n *   3379     13 Exit: ^1 [1]'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3375     13 Call: ^1 [1]\n *   3376     14 Call: ^1 []\n *   3376     14 Exit: ^1 []\n *   3375     13 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call2Request, 10, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '     5415     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5415     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5406     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5405     20 Exception: call(jupyter:trace(3 is 1+x))',
+  ExpectedExceptionOutput = '     5407     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5407     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5398     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5397     20 Exception: call(jupyter:trace(3 is 1+x))',
   ExpectedPrologMessage = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
   Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10392     22 Call: ^1 [1]\n *  10393     23 Call: ^1 []\n *  10393     23 Exit: ^1 []\n *  10392     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10380     22 Call: ^1 [1]\n *  10381     23 Call: ^1 []\n *  10381     23 Exit: ^1 []\n *  10380     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 
@@ -1340,27 +1341,27 @@ expected_prolog_message_subterm(print_table_2_no_single_goal, 0, 59, '! jupyter:
 
 test(print_table_1_member, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table((member(Member, [10,20,30]), Square is Member*Member)).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
   send_call_with_single_success_result(Request, 1, Result).
 
 test(print_table_1_member_with_output, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table((member(Member, [10,20,30]), Square is Member*Member, print(Square), nl)).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='100\n400\n900',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
+  ExpectedResult = [type=query,bindings=json([]),output='100\n400\n900',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
   send_call_with_single_success_result(Request, 2, Result).
 
 test(print_table_1_member_with_variables, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table(member(Member, [A,B,C])).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['Member','Member','B','C'],['Member','A','Member','C'],['Member','A','B','Member']],'VariableNames'=['Member','A','B','C']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['Member','Member','B','C'],['Member','A','Member','C'],['Member','A','B','Member']],'VariableNames'=['Member','A','B','C']])],
   send_call_with_single_success_result(Request, 3, Result).
 
 test(print_table_1_member_with_variables_and_binding, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table((member(Member, [A, B]), B=2)).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['Member','Member','2'],['2','A','2']],'VariableNames'=['Member','A','B']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['Member','Member','2'],['2','A','2']],'VariableNames'=['Member','A','B']])],
   send_call_with_single_success_result(Request, 4, Result).
 
 test(print_table_1_member_and_retry, [true(RetryError = ExpectedRetryError)]) :-
   MemberRequest = 'jupyter:print_table((member(Member, [10,20,30]), Square is Member*Member)).',
-  MemberExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
+  MemberExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
   send_call_with_single_success_result(MemberRequest, 5, MemberResult),
   check_equality(MemberResult, MemberExpectedResult),
   % retry
@@ -1370,7 +1371,7 @@ test(print_table_1_member_and_retry, [true(RetryError = ExpectedRetryError)]) :-
 
 test(print_table_1_without_result, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table(lists:is_list([])).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[[]],'VariableNames'=[]])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[[]],'VariableNames'=[]])],
   send_call_with_single_success_result(Request, 7, Result).
 
 test(print_table_1_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
@@ -1380,7 +1381,7 @@ test(print_table_1_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMe
 
 test(print_table_2, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table([[10,100],[20,400],[30,900]], [\'X\', \'Y\']).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['X','Y']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['X','Y']])],
   send_call_with_single_success_result(Request, 9, Result).
 
 test(print_table_2_reuse_var_value, [true(PrintTableResult = ExpectedPrintTableResult)]) :-
@@ -1390,27 +1391,27 @@ test(print_table_2_reuse_var_value, [true(PrintTableResult = ExpectedPrintTableR
   check_equality(FindallResult, ExpectedFindallResult),
   % Reuse variable value
   PrintTableRequest = 'jupyter:print_table($ResultLists, [\'Member\', \'Square\']).',
-  ExpectedPrintTableResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
+  ExpectedPrintTableResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['Member','Square']])],
   send_call_with_single_success_result(PrintTableRequest, 11, PrintTableResult).
 
 test(print_table_2_variable, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table([[A,B],[C,D],[E,F]], [\'X\', \'Y\']).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['A','B'],['C','D'],['E','F']],'VariableNames'=['X','Y']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['A','B'],['C','D'],['E','F']],'VariableNames'=['X','Y']])],
   send_call_with_single_success_result(Request, 12, Result).
 
 test(print_table_2_no_values, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table([], []).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[],'VariableNames'=[]])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[],'VariableNames'=[]])],
   send_call_with_single_success_result(Request, 13, Result).
 
 test(print_table_2_no_values_but_names, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table([], [a, b]).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[],'VariableNames'=[a,b]])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[],'VariableNames'=[a,b]])],
   send_call_with_single_success_result(Request, 14, Result).
 
 test(print_table_2_no_variable_names, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_table([[10,100],[20,400],[30,900]], []).',
-  ExpectedResult = [type=print_table,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['A','B']])],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_table=json(['ValuesLists'=[['10','100'],['20','400'],['30','900']],'VariableNames'=['A','B']])],
   send_call_with_single_success_result(Request, 15, Result).
 
 test(print_table_2_with_unbound_variable_name, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
@@ -1466,7 +1467,7 @@ test(previous_query_time_sleep, [true(LastQueryTimeResult = ExpectedLastQueryTim
 :- end_tests(previous_query_time).
 
 
-:- begin_tests(print_previous_queries, [setup(start_process), cleanup(release_process(true))]).
+:- begin_tests(print_queries, [setup(start_process), cleanup(release_process(true))]).
 
 test(previous_queries_with_multiple_variables, [true(PrevQueriesResult = ExpectedPrevQueriesResult)]) :-
   AppendRequest = 'X = [1,2,3], Y = [4,5,6], append(X, Y, Z).',
@@ -1474,7 +1475,7 @@ test(previous_queries_with_multiple_variables, [true(PrevQueriesResult = Expecte
   send_call_with_single_success_result(AppendRequest, 1, AppendResult),
   check_equality(AppendResult, ExpectedAppendResult),
   % Print the query with id 1
-  PrevQueriesRequest = 'jupyter:print_previous_queries([1]).',
+  PrevQueriesRequest = 'jupyter:print_queries([1]).',
   ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='X=[1,2,3],Y=[4,5,6],append(X,Y,Z).'],
   send_call_with_single_success_result(PrevQueriesRequest, 2, PrevQueriesResult).
 
@@ -1492,21 +1493,21 @@ test(previous_queries_with_previous_variable_binding, [true(PrevQueriesResult = 
   send_call_with_single_success_result(PrintRequest, 5, PrintResult),
   check_equality(PrintResult, ExpectedPrintResult),
   % Print the two previous queries -> '$Member' is replaced by 'Member' and '$X' is not replaced (does not occur in one of the queries which are printed)
-  PrevQueriesRequest = 'jupyter:print_previous_queries([4,5]).',
+  PrevQueriesRequest = 'jupyter:print_queries([4,5]).',
   ExpectedPrevQueriesResult = [type=query,bindings=json([]),output='member(Member,[1,2,3]),\nprint(Member),nl,print($X).'],
   send_call_with_single_success_result(PrevQueriesRequest, 6, PrevQueriesResult).
 
 test(previous_queries_with_non_existent_ids, [true(Result = ExpectedResult)]) :-
-  Request = 'jupyter:print_previous_queries([10,11,12]).',
+  Request = 'jupyter:print_queries([10,11,12]).',
   ExpectedResult = [type=query,bindings=json([]),output=''],
   send_call_with_single_success_result(Request, 7, Result).
 
 test(previous_queries_no_ids, [true(Result = ExpectedResult)]) :-
-  Request = 'jupyter:print_previous_queries([]).',
+  Request = 'jupyter:print_queries([]).',
   ExpectedResult = [type=query,bindings=json([]),output=''],
   send_call_with_single_success_result(Request, 8, Result).
 
-:- end_tests(print_previous_queries).
+:- end_tests(print_queries).
 
 
 :- if(swi).
@@ -1576,13 +1577,13 @@ expected_prolog_message_subterm(sld_tree_exception, 0, 82, '! Type error in argu
 expected_output(sld_tree_exception, '1\n% The debugger is switched off').
 
 expected_print_sld_tree(sld_tree_with_variable_bindings, 'digraph {\n    "4" [label="pred(A,B)"]\n    "5" [label="g1(A,C)"]\n    "6" [label="g11(A,D)"]\n    "7" [label="g12(b,C)"]\n    "8" [label="g2(c,B)"]\n    "4" -> "5"\n    "5" -> "6"\n    "5" -> "7"\n    "4" -> "8"\n}').
-expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6938" [label="print(test)"]\n    "6939" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6940" [label="app([3],[4],A)"]\n    "6941" [label="print(3)"]\n    "6942" [label="app([],[4],B)"]\n    "6943" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6944" [label="print(1)"]\n    "6945" [label="app([2],[3,4],[2,3,4])"]\n    "6946" [label="print(2)"]\n    "6947" [label="app([],[3,4],[3,4])"]\n    "6948" [label="print(done)"]\n    "6939" -> "6940"\n    "6940" -> "6941"\n    "6940" -> "6942"\n    "6939" -> "6943"\n    "6943" -> "6944"\n    "6943" -> "6945"\n    "6945" -> "6946"\n    "6945" -> "6947"\n}').
-expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12498" [label="print(failure_test)"]\n    "12499" [label="append([1],[2],[3])"]\n}').
-expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16785" [label="member_square([1,a,3])"]\n    "16786" [label="member(A,[1,a,3])"]\n    "16787" [label="B is 1*1"]\n    "16788" [label="print(1)"]\n    "16789" [label="B is a*a"]\n    "16785" -> "16786"\n    "16785" -> "16787"\n    "16785" -> "16788"\n    "16785" -> "16789"\n}').
+expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6935" [label="print(test)"]\n    "6936" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6937" [label="app([3],[4],A)"]\n    "6938" [label="print(3)"]\n    "6939" [label="app([],[4],B)"]\n    "6940" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6941" [label="print(1)"]\n    "6942" [label="app([2],[3,4],[2,3,4])"]\n    "6943" [label="print(2)"]\n    "6944" [label="app([],[3,4],[3,4])"]\n    "6945" [label="print(done)"]\n    "6936" -> "6937"\n    "6937" -> "6938"\n    "6937" -> "6939"\n    "6936" -> "6940"\n    "6940" -> "6941"\n    "6940" -> "6942"\n    "6942" -> "6943"\n    "6942" -> "6944"\n}').
+expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12492" [label="print(failure_test)"]\n    "12493" [label="append([1],[2],[3])"]\n}').
+expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16776" [label="member_square([1,a,3])"]\n    "16777" [label="member(A,[1,a,3])"]\n    "16778" [label="B is 1*1"]\n    "16779" [label="print(1)"]\n    "16780" [label="B is a*a"]\n    "16776" -> "16777"\n    "16776" -> "16778"\n    "16776" -> "16779"\n    "16776" -> "16780"\n}').
 :- endif.
 
 
-% These tests rely on exact invocation numbers, which is why they might fail when the source code is changed or when a single test is run instead of test unit.
+% For SICStus Prolog, these tests rely on exact invocation numbers, which is why they might fail when the source code is changed or when a single test is run instead of test unit.
 
 :- begin_tests(print_sld_tree, [setup((start_process)), cleanup(release_process(true))]).
 
@@ -1791,7 +1792,7 @@ test(stack_with_retry_and_cut, [true(RetryAndCutResult = ExpectedRetryAndCutResu
   ExpectedRetryAndCutResult = json(['1'=json([status=error,error=json([code= -4711,message='Failure',data=json([prolog_message='',output='% Retrying goal: member(L,[a])\n'])])]),
                                     '2'=json([status=success,type=query,bindings=json(['N'='2']),output='% Retrying goal: member(N,[1,2,3])\n']),
                                     '3'=json([status=success,type=query,bindings=json([]),output='->  member(N,[1,2,3])']),
-                                    '4'=json([status=success,type=cut,bindings=json([]),output='% Successfully cut\n% There is no previous active goal']),
+                                    '4'=json([status=success,type=query,bindings=json([]),output='% There is no previous active goal']),
                                     '5'=json([status=success,type=query,bindings=json([]),output=''])]),
   send_success_call(RetryAndCutRequest, 4, RetryAndCutResult).
 

@@ -4,13 +4,12 @@
 
 
 :- module(jsonrpc,
-    [next_jsonrpc_message/1,      % next_jsonrpc_message(-Message)
+    [json_error_term/5,           % json_error_term(+ErrorCode, +ErrorMessageData, +Output, +AdditionalData, -JsonErrorTerm)
+     next_jsonrpc_message/1,      % next_jsonrpc_message(-Message)
      parse_json_terms_request/3,  % parse_json_terms_request(+Params, -TermsAndVariables, -ParsingErrorMessageData)
+     send_error_reply/3,          % send_error_reply(+Id, +ErrorCode, +ErrorMessage)
      send_json_request/6,         % send_json_request(+Method, +Params, +Id, +InputStream, +OutputStream, -Reply)
-     json_error_term/5,           % json_error_term(+ErrorCode, +ErrorMessageData, +Output, +AdditionalData, -JsonErrorTerm)
-     % send replies by writing messages to the output stream
-     send_success_reply/2,        % send_success_reply(+Id, +Result)
-     send_error_reply/3           % send_error_reply(+Id, +ErrorCode, +ErrorMessage)
+     send_success_reply/2         % send_success_reply(+Id, +Result)
     ]).
 
 

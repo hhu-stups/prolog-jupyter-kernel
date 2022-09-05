@@ -6,22 +6,21 @@
 % - retrieve_message/2: for a term of the form message_data(Kind, Term), print the message with print_message(Kind, Term) and read it
 
 % Additionally, it provides the dynamic predicate query_data(CallRequestId, Runtime, TermData, OriginalTermData) where TermData and OriginalTermData are terms of the form term_data(TermAtom, Bindings).
-% It is used to remember all queries' IDs, goal and runtime so that the data can be accessed by jupyter:previous_query_time/2 and jupyter:print_previous_queries/1.
+% It is used to remember all queries' IDs, goal and runtime so that the data can be accessed by jupyter:previous_query_time/2 and jupyter:print_queries/1.
 % If there was a replacement of $Var terms in the original term, OriginalTermData contains the original term and its bindings.
 % Otherwise, OriginalTermData=same
 
 
 :- module(output,
-    [remove_output_lines_for/1,         % remove_output_lines_for(Type),
-     send_reply_on_error/0,
-     query_data/4,                      % query_data(-CallRequestId, -Runtime, -TermData, -OriginalTermData)
+    [call_query_with_output_to_file/7,  % call_query_with_output_to_file(+Goal, +CallRequestId, +Bindings, +OriginalTermData, -Output, -ErrorMessageData -IsFailure)
      call_with_output_to_file/3,        % call_with_output_to_file(+Goal, -Output, -ErrorMessageData)
-     call_query_with_output_to_file/7,  % call_query_with_output_to_file(+Goal, +CallRequestId, +Bindings, +OriginalTermData, -Output, -ErrorMessageData -IsFailure)
-     redirect_output_to_file/0,
-     assert_query_start_time/0,
-     switch_debug_mode_on_for_breakpoints/0,
      delete_output_file/1,              % delete_output_file(+DeleteFile)
-     retrieve_message/2                 % retrieve_message(+ErrorMessageData, -Message)
+     query_data/4,                      % query_data(-CallRequestId, -Runtime, -TermData, -OriginalTermData)
+     redirect_output_to_file/0,
+     remove_output_lines_for/1,         % remove_output_lines_for(Type),
+     retrieve_message/2,                % retrieve_message(+ErrorMessageData, -Message)
+     send_reply_on_error/0,
+     debug_mode_for_breakpoints/0
     ]).
 
 
@@ -43,11 +42,11 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- dynamic
-  remove_output_lines_for/1,  % remove_output_lines_for(Type),
-  send_reply_on_error/0,
   output_stream/1,            % output_stream(OutputStream)
-  query_data/4.               % query_data(CallRequestId, Runtime, TermData, OriginalTermData)
+  query_data/4,               % query_data(CallRequestId, Runtime, TermData, OriginalTermData)
                               % TermData and OriginalTermData are terms of the form term_data(TermAtom, Bindings)
+  remove_output_lines_for/1,  % remove_output_lines_for(Type),
+  send_reply_on_error/0.
 
 
 % If send_reply_on_error exists, an error reply is sent to the client if an unhandled error occurs and is printed with print_message/2.
@@ -92,12 +91,12 @@ call_with_output_to_file(Goal, Output, ErrorMessageData) :-
 call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure) :-
   goal_with_module(Goal, MGoal),
   % Compute the atom of the goal Goal before calling it causes variables to be bound
-  % The atom is needed for goal_runtime/2 in case ComputeRuntime=true
+  % The atom is needed for the term data which is asserted
   write_term_to_codes(Goal, GoalCodes, [variable_names(Bindings)]),
   atom_codes(GoalAtom, GoalCodes),
   prepare_call_with_output_to_file,
   % Call the goal Goal and compute the runtime
-  assert_query_start_time,
+  statistics(walltime, _Value),
   ( call_with_exception_handling(MGoal, ErrorMessageData)
   ; % Goal failed
     IsFailure = true
@@ -128,12 +127,6 @@ redirect_output_to_file :-
   redirect_user_error_output_to_stream(OutputStream).
 
 
-assert_query_start_time :-
-  retractall(query_start_time(_)),
-  statistics(walltime, [StartTime|_]),
-  assert(query_start_time(StartTime)).
-
-
 % call_with_exception_handling(+MGoal, -ErrorMessageData)
 :- if(swi).
 call_with_exception_handling(MGoal, ErrorMessageData) :-
@@ -152,19 +145,19 @@ call_with_exception_handling(jupyter:trace(Goal), ErrorMessageData) :-
         % In case of an exception, switch the debug mode off so that no more debugging messages are printed
         % If there are breakpoints, switch the debug mode back on
         % Otherwise, no debugging messages are output for those breakpoints
-        (nodebug, switch_debug_mode_on_for_breakpoints, ErrorMessageData = message_data(error, Exception))).
+        (nodebug, debug_mode_for_breakpoints, ErrorMessageData = message_data(error, Exception))).
 call_with_exception_handling(MGoal, ErrorMessageData) :-
   catch(call(MGoal),
         Exception,
         ErrorMessageData = message_data(error, Exception)).
 
-switch_debug_mode_on_for_breakpoints :-
+debug_mode_for_breakpoints :-
   % If there are any breakpoints, switch debug mode on
   user:current_breakpoint(_Conditions, _BID, _Status, _Kind, _Type),
   debug,
   !.
 :- endif.
-switch_debug_mode_on_for_breakpoints.
+debug_mode_for_breakpoints.
 
 
 % assert_query_data(+CallRequestId, +TermData, +OriginalTermData)
@@ -172,18 +165,16 @@ assert_query_data(0, _TermData, _OriginalTermData) :- !.
 % Do not assert query data for requests with ID 0
 % With requests with this ID, the kernel can request additional data (e.g. for inspection in the case of SWI-Prolog)
 assert_query_data(CallRequestId, TermData, OriginalTermData) :-
-  statistics(walltime, [EndTime|_]),
+  statistics(walltime, [_Time, Runtime]),
   nonvar(OriginalTermData),
   !,
-  % Remember all queries' IDs, goal and runtime so that it can be accessed by jupyter:previous_query_time/2 and jupyter:print_previous_queries/1
-  query_start_time(StartTime),
-  Runtime is EndTime - StartTime,
+  % Remember all queries' IDs, goal and runtime so that it can be accessed by jupyter:previous_query_time/2 and jupyter:print_queries/1
   ( TermData = OriginalTermData ->
     StoreOriginalTermData = same
   ; % there was a replacement of $Var terms in the original term -> store both terms data
     StoreOriginalTermData = OriginalTermData
   ),
-  % Assert the data with assertz/1 so that they can be accessed in the correct order with jupyter:print_previous_queries/1
+  % Assert the data with assertz/1 so that they can be accessed in the correct order with jupyter:print_queries/1
   assertz(query_data(CallRequestId, Runtime, TermData, StoreOriginalTermData)).
 assert_query_data(_CallRequestId, _TermData, _OriginalTermData).
 
@@ -318,7 +309,6 @@ remove_output_lines(IsSicstusJupyterTrace, Lines, NewLines) :-
   IsSicstusJupyterTrace == true,
   !,
   % The output was caused by a call of jupyter:trace/1 from SICStus Prolog and contains debugging messages
-
   % The first element corresponds to the message '% The debugger will first creep -- showing everything (trace)'
   Lines = [_TraceMessage|LinesWithoutTraceMessage],
   % Remove the last two or three elements

@@ -4,9 +4,9 @@
 % As this functionality is built-in for SWI-Prolog, this module is needed for SICStus Prolog only.
 
 :- module(variable_bindings,
-    [var_bindings/1,                  % var_bindings(-Bindings)
-     store_var_bindings/1,            % store_var_bindings(+Bindings)
-     term_with_stored_var_bindings/4  % term_with_stored_var_bindings(+Term, +Bindings, -ExpandedTerm, -UpdatedBindings)
+    [store_var_bindings/1,            % store_var_bindings(+Bindings)
+     term_with_stored_var_bindings/4, % term_with_stored_var_bindings(+Term, +Bindings, -ExpandedTerm, -UpdatedBindings)
+     var_bindings/1                   % var_bindings(-Bindings)
     ]).
 
 
