@@ -6,7 +6,7 @@
 % - retrieve_message/2: for a term of the form message_data(Kind, Term), print the message with print_message(Kind, Term) and read it
 
 % Additionally, it provides the dynamic predicate query_data(CallRequestId, Runtime, TermData, OriginalTermData) where TermData and OriginalTermData are terms of the form term_data(TermAtom, Bindings).
-% It is used to remember all queries' IDs, goal and runtime so that the data can be accessed by jupyter:previous_query_time/2 and jupyter:print_queries/1.
+% It is used to remember all queries' IDs, goal and runtime so that the data can be accessed by jupyter:print_query_time/0 and jupyter:print_queries/1.
 % If there was a replacement of $Var terms in the original term, OriginalTermData contains the original term and its bindings.
 % Otherwise, OriginalTermData=same
 
@@ -168,7 +168,7 @@ assert_query_data(CallRequestId, TermData, OriginalTermData) :-
   statistics(walltime, [_Time, Runtime]),
   nonvar(OriginalTermData),
   !,
-  % Remember all queries' IDs, goal and runtime so that it can be accessed by jupyter:previous_query_time/2 and jupyter:print_queries/1
+  % Remember all queries' IDs, goal and runtime so that it can be accessed by jupyter:print_query_time/0 and jupyter:print_queries/1
   ( TermData = OriginalTermData ->
     StoreOriginalTermData = same
   ; % there was a replacement of $Var terms in the original term -> store both terms data

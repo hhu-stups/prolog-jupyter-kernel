@@ -1430,41 +1430,44 @@ test(print_table_2_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMe
 
 
 :- if(swi).
-expected_output(previous_query_time_sleep, '').
+expected_output(print_query_time_sleep, '').
 :- else.
-expected_output(previous_query_time_sleep, '% module system imported into user').
+expected_output(print_query_time_sleep, '% module system imported into user').
 :- endif.
 
 
-:- begin_tests(previous_query_time, [setup(start_process), cleanup(release_process(true))]).
+:- begin_tests(print_query_time, [setup(start_process), cleanup(release_process(true))]).
 
-test(previous_query_time_no_previous_query, [true(Error = ExpectedError)]) :-
-  Request = 'jupyter:previous_query_time(Goal, Time).',
+test(print_query_time_no_previous_query, [true(Error = ExpectedError)]) :-
+  Request = 'jupyter:print_query_time.',
   ExpectedError = json([code= -4711,message='Failure',data=json([prolog_message='',output='* There is no previous query'])]),
   send_call_with_single_error_result(Request, 1, Error).
 
-test(previous_query_time_member, [true(LastQueryTimeResult = ExpectedLastQueryTimeResult)]) :-
+test(print_query_time_member, [true(LastQueryTimeResult = ExpectedLastQueryTimeResult)]) :-
   MemberRequest = 'member(M, [1,2,3]).',
   ExpectedMemberResult = [type=query,bindings=json(['M'='1']),output=''],
   send_call_with_single_success_result(MemberRequest, 2, MemberResult),
   check_equality(MemberResult, ExpectedMemberResult),
-  % Get the goal and runtime of the previous query
-  LastQueryTimeRequest = 'jupyter:previous_query_time(Goal, Time).',
-  ExpectedLastQueryTimeResult = [type=query,bindings=json(['Goal'='member(M,[1,2,3])','Time'=_Time]),output=''],
+  % Print the goal and runtime of the previous query
+  LastQueryTimeRequest = 'jupyter:print_query_time.',
+  ExpectedLastQueryTimeResult = [type=query,bindings=json([]),output='Query:   member(M,[1,2,3])\nRuntime: 0 ms'],
   send_call_with_single_success_result(LastQueryTimeRequest, 3, LastQueryTimeResult).
 
-test(previous_query_time_sleep, [true(LastQueryTimeResult = ExpectedLastQueryTimeResult)]) :-
+test(print_query_time_sleep, [true(OutputStart = ExpectedOutputStart)]) :-
   SleepRequest = 'use_module(library(system)), sleep(1).',
-  expected_output(previous_query_time_sleep, ExpectedOutput),
+  expected_output(print_query_time_sleep, ExpectedOutput),
   ExpectedSleepResult = [type=query,bindings=json([]),output=ExpectedOutput],
   send_call_with_single_success_result(SleepRequest, 4, SleepResult),
   check_equality(SleepResult, ExpectedSleepResult),
-  % Get the goal and runtime of the previous query
-  LastQueryTimeRequest = 'jupyter:previous_query_time(Goal, Time).',
-  ExpectedLastQueryTimeResult = [type=query,bindings=json(['Goal'='use_module(library(system)),sleep(1)','Time'=_Time]),output=''],
-  send_call_with_single_success_result(LastQueryTimeRequest, 5, LastQueryTimeResult).
+  % Print the goal and runtime of the previous query
+  LastQueryTimeRequest = 'jupyter:print_query_time.',
+  ExpectedOutputStart = 'Query:   use_module(library(system)),sleep(1)\nRuntime: ',
+  ExpectedLastQueryTimeResult = [type=query,bindings=json([]),output=Output],
+  send_call_with_single_success_result(LastQueryTimeRequest, 5, LastQueryTimeResult),
+  check_equality(LastQueryTimeResult, ExpectedLastQueryTimeResult),
+  sub_atom(Output, 0, 55, _, OutputStart).
 
-:- end_tests(previous_query_time).
+:- end_tests(print_query_time).
 
 
 :- begin_tests(print_queries, [setup(start_process), cleanup(release_process(true))]).

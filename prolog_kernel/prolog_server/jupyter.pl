@@ -8,8 +8,8 @@
     [cut/0,
      %halt/0,
      help/0,
-     previous_query_time/2,     % previous_query_time(-Goal, -Runtime)
      print_queries/1,           % print_queries(+Ids)
+     print_query_time/0,        % print_query_time
      print_sld_tree/1,          % print_sld_tree(+Goal)
      print_stack/0,             % print_stack
      print_table/1,             % print_table(+Goal)
@@ -143,11 +143,10 @@ predicate_doc('jupyter:help/0', Doc) :-
     'jupyter:help',
     '\n\n    Outputs the documentation for all predicates from module jupyter.'
   ], Doc).
-predicate_doc('jupyter:previous_query_time/2', Doc) :-
+predicate_doc('jupyter:print_query_time', Doc) :-
   atom_concat([
-    'jupyter:previous_query_time(-Goal, -Runtime)',
-    '\n\n    Goal is the previously executed goal.',
-    '\n    Time is the time in milliseconds it took the query to complete.'
+    'jupyter:print_query_time',
+    '\n\n    Prints the latest previous query and its runtime in milliseconds.'
   ], Doc).
 predicate_doc('jupyter:print_queries/1', Doc) :-
   atom_concat([
@@ -358,13 +357,14 @@ print_variable_bindings([Name=Value|Bindings]) :-
 
 % Previous query data
 
-% previous_query_time(-Goal, -Runtime)
+% print_query_time
 %
-% Runtime is the runtime of the latest query, which was a call of Goal
-previous_query_time(Goal, Runtime) :-
+% Prints the latest previous query and its runtime in milliseconds.
+print_query_time :-
   findall(Goal-Runtime, output:query_data(_CallRequestId, Runtime, term_data(Goal, _NameVarPairs), _OriginalTermData), GoalRuntimes),
-  append(_PreviousGoalRuntimes, [Goal-Runtime], GoalRuntimes).
-previous_query_time(_Goal, _Runtime) :-
+  append(_PreviousGoalRuntimes, [Goal-Runtime], GoalRuntimes),
+  format('Query:   ~w~nRuntime: ~w ms~n', [Goal, Runtime]).
+print_query_time :-
   format('* There is no previous query', []),
   fail.
 
