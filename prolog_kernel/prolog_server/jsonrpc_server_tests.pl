@@ -1091,7 +1091,8 @@ test(multiple_terms_with_comment_preceding_terminating_full_stop, [true(Result =
 
 :- if(swi).
 expected_output(exception_in_trace, '   Call: (22) 3 is 1+x\n   Exception: (22) 3 is 1+x').
-expected_output(jupyter_trace, '   Call: (26) app([1], [2], [1, 2])\n   Call: (27) app([], [2], [2])\n   Exit: (27) app([], [2], [2])\n   Exit: (26) app([1], [2], [1, 2])\n   Call: (26) print(done)\ndone   Exit: (26) print(done)').
+expected_output(trace_failure, '   Call: (23) app([1, 2], [3], [1, 3])\n   Call: (24) app([2], [3], [3])\n   Fail: (24) app([2], [3], [3])\n   Fail: (23) app([1, 2], [3], [1, 3])\n   Redo: (22) jupyter:trace(app([1, 2], [3], [1, 3]))').
+expected_output(jupyter_trace, '   Call: (34) app([1], [2], [1, 2])\n   Call: (35) app([], [2], [2])\n   Exit: (35) app([], [2], [2])\n   Exit: (34) app([1], [2], [1, 2])\n   Call: (34) print(done)\ndone   Exit: (34) print(done)').
 
 expected_prolog_message_subterm(trace_0, 0, 99, 'ERROR: trace/0 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
 expected_prolog_message_subterm(leash_1, 0, 119, 'ERROR: The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
@@ -1100,7 +1101,8 @@ expected_prolog_message_subterm(trace_1, 0, 99, 'ERROR: trace/1 cannot be used i
 expected_prolog_message_subterm(trace_2, 0, 99, 'ERROR: trace/2 cannot be used in a Jupyter application\nERROR: However, there is juypter:trace(Goal)').
 :- else.
 expected_output(exception_in_trace, '        1      1 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n        1      1 Exception: 3 is 1+x').
-expected_output(jupyter_trace, '        3      1 Call: app([1],[2],[1,2])\n        4      2 Call: app([],[2],[2])\n        4      2 Exit: app([],[2],[2])\n        3      1 Exit: app([1],[2],[1,2])\n        5      1 Call: print(done)\ndone\n        5      1 Exit: print(done)').
+expected_output(trace_failure, '        3      1 Call: app([1,2],[3],[1,3])\n        4      2 Call: app([2],[3],[3])\n        4      2 Fail: app([2],[3],[3])\n        3      1 Fail: app([1,2],[3],[1,3])').
+expected_output(jupyter_trace, '        6      1 Call: app([1],[2],[1,2])\n        7      2 Call: app([],[2],[2])\n        7      2 Exit: app([],[2],[2])\n        6      1 Exit: app([1],[2],[1,2])\n        8      1 Call: print(done)\ndone\n        8      1 Exit: print(done)').
 
 expected_prolog_message_subterm(trace_0, 0, 89, '! trace/0 cannot be used in a Jupyter application\n! However, there is juypter:trace(Goal)').
 expected_prolog_message_subterm(leash_1, 0, 114, '! The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
@@ -1132,6 +1134,14 @@ test(exception_in_trace, [true(PrologMessageSubterm = ExpectedPrologMessageSubte
   expected_output(exception_in_trace, ExpectedOutput),
   error_result_message_subterms(exception_in_trace, 'jupyter:trace((3 is 1 + x)).', 3, ExpectedOutput, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
+test(trace_failure, [true(TraceResult = ExpectedTraceResult)]) :-
+  % Print the trace of the predicate app/3
+  TraceRequest = 'jupyter:trace(app([1,2], [3], [1,3])).',
+  expected_output(trace_failure, ExpectedOutput),
+  ExpectedTraceResult = [type=query,bindings=json([]),output=ExpectedOutput],
+  send_call_with_single_success_result(TraceRequest, 4, TraceResult),
+  check_equality(TraceResult, ExpectedTraceResult).
+
 :- if(swi).
 
 test(trace_1, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
@@ -1161,29 +1171,29 @@ test(spypoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(AddBreakpointResult, ExpectedAddBreakpointResult),
   % Call the predicate app/3
   CallRequest = 'app([1], [2], [1,2]).',
-  ExpectedCallResult = [type=query,bindings=json([]),output='   Call: (33) app([1], [2], [1, 2])\n   Call: (34) app([], [2], [2])\n   Exit: (34) app([], [2], [2])\n   Exit: (33) app([1], [2], [1, 2])'],
+  ExpectedCallResult = [type=query,bindings=json([]),output='   Call: (41) app([1], [2], [1, 2])\n   Call: (42) app([], [2], [2])\n   Exit: (42) app([], [2], [2])\n   Exit: (41) app([1], [2], [1, 2])'],
   send_call_with_single_success_result(CallRequest, 9, CallResult),
   check_equality(CallResult, ExpectedCallResult),
   % Call jupyter:trace/1
   TraceRequest = 'jupyter:trace(app([1], [2], [1,2])).',
-  ExpectedTraceResult = [type=query,bindings=json([]),output='   Call: (42) app([1], [2], [1, 2])\n   Call: (43) app([], [2], [2])\n   Exit: (43) app([], [2], [2])\n   Exit: (42) app([1], [2], [1, 2])'],
+  ExpectedTraceResult = [type=query,bindings=json([]),output='   Call: (50) app([1], [2], [1, 2])\n   Call: (51) app([], [2], [2])\n   Exit: (51) app([], [2], [2])\n   Exit: (50) app([1], [2], [1, 2])'],
   send_call_with_single_success_result(TraceRequest, 10, TraceResult),
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output='   Call: (49) app([1], [2], [1, 2])\n   Call: (50) app([], [2], [2])\n   Exit: (50) app([], [2], [2])\n   Exit: (49) app([1], [2], [1, 2])'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output='   Call: (57) app([1], [2], [1, 2])\n   Call: (58) app([], [2], [2])\n   Exit: (58) app([], [2], [2])\n   Exit: (57) app([1], [2], [1, 2])'],
   send_call_with_single_success_result(Call2Request, 11, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '   Call: (58) 3 is 1+x\n   Exception: (58) 3 is 1+x\n   Exception: (57) jupyter:trace(3 is 1+x)',
+  ExpectedExceptionOutput = '   Call: (66) 3 is 1+x\n   Exception: (66) 3 is 1+x\n   Exception: (65) jupyter:trace(3 is 1+x)',
   ExpectedPrologMessage = 'ERROR: is/2: Arithmetic: `x/0\' is not a function',
   Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 12, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output='   Call: (58) app([1], [2], [1, 2])\n   Call: (59) app([], [2], [2])\n   Exit: (59) app([], [2], [2])\n   Exit: (58) app([1], [2], [1, 2])'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output='   Call: (66) app([1], [2], [1, 2])\n   Call: (67) app([], [2], [2])\n   Exit: (67) app([], [2], [2])\n   Exit: (66) app([1], [2], [1, 2])'],
   send_call_with_single_success_result(Call3Request, 13, Call3Result).
 
 :- else.
@@ -1214,29 +1224,29 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(AddBreakpointResult, ExpectedAddBreakpointResult),
   % Call the predicate app/3
   CallRequest = 'app([1], [2], [1,2]).',
-  ExpectedCallResult = [type=query,bindings=json([]),output=' *      7      1 Call: ^1 [1]\n *      8      2 Call: ^1 []\n *      8      2 Exit: ^1 []\n *      7      1 Exit: ^1 [1]'],
+  ExpectedCallResult = [type=query,bindings=json([]),output=' *     10      1 Call: ^1 [1]\n *     11      2 Call: ^1 []\n *     11      2 Exit: ^1 []\n *     10      1 Exit: ^1 [1]'],
   send_call_with_single_success_result(CallRequest, 8, CallResult),
   check_equality(CallResult, ExpectedCallResult),
   % Created breakpoints are activated during a jupyter:trace/1 call
   TraceRequest = 'jupyter:trace(app([1], [2], [3], [1,2,3])).',
-  ExpectedTraceResult = [type=query,bindings=json([]),output='        9      1 Call: app([1],[2],[3],[1,2,3])\n *     10      2 Call: ^1 [2]\n *     11      3 Call: ^1 []\n *     11      3 Exit: ^1 []\n *     10      2 Exit: ^1 [2]\n *     12      2 Call: ^1 [1]\n *     13      3 Call: ^1 []\n *     13      3 Exit: ^1 []\n *     12      2 Exit: ^1 [1]\n        9      1 Exit: app([1],[2],[3],[1,2,3])'],
+  ExpectedTraceResult = [type=query,bindings=json([]),output='       12      1 Call: app([1],[2],[3],[1,2,3])\n *     13      2 Call: ^1 [2]\n *     14      3 Call: ^1 []\n *     14      3 Exit: ^1 []\n *     13      2 Exit: ^1 [2]\n *     15      2 Call: ^1 [1]\n *     16      3 Call: ^1 []\n *     16      3 Exit: ^1 []\n *     15      2 Exit: ^1 [1]\n       12      1 Exit: app([1],[2],[3],[1,2,3])'],
   send_call_with_single_success_result(TraceRequest, 9, TraceResult),
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3375     13 Call: ^1 [1]\n *   3376     14 Call: ^1 []\n *   3376     14 Exit: ^1 []\n *   3375     13 Exit: ^1 [1]'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3378     13 Call: ^1 [1]\n *   3379     14 Call: ^1 []\n *   3379     14 Exit: ^1 []\n *   3378     13 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call2Request, 10, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '     5407     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5407     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5398     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5397     20 Exception: call(jupyter:trace(3 is 1+x))',
+  ExpectedExceptionOutput = '     5410     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5410     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5401     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5400     20 Exception: call(jupyter:trace(3 is 1+x))',
   ExpectedPrologMessage = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
   Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10380     22 Call: ^1 [1]\n *  10381     23 Call: ^1 []\n *  10381     23 Exit: ^1 []\n *  10380     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10383     22 Call: ^1 [1]\n *  10384     23 Call: ^1 []\n *  10384     23 Exit: ^1 []\n *  10383     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 

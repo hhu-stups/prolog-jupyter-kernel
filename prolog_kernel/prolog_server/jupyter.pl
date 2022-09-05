@@ -279,9 +279,11 @@ atom_concat_([Atom|Atoms], AtomSoFar, ResultAtom) :-
 % Because of user:prolog_trace_interception/4 defined in jsonrpc_server, debugging messages are printed to the current output without requesting user interaction.
 trace(Goal) :-
   trace,
-  call(Goal),
-  !,
-  notrace.
+  ( call(Goal) ->
+    notrace
+  ; notrace
+  ),
+  !.
 
 :- else.
 
@@ -296,11 +298,13 @@ trace(Goal) :-
   catch(retractall(output:remove_output_lines_for(trace_debugging_messages)), _Exception, true),
   module_name_expanded(Goal, MGoal),
   switch_trace_mode_on,
-  call(MGoal),
+  ( call(MGoal) ->
+    % Switch off trace mode so that no more debugging messages are printed
+    % Afterwards, it needs to be checked if debug mode should be switched on again
+    nodebug
+  ; nodebug
+  ),
   !,
-  % Switch off trace mode so that no more debugging messages are printed
-  % Afterwards, it needs to be checked if debug mode should be switched on again
-  nodebug,
   output:debug_mode_for_breakpoints.
 
 
