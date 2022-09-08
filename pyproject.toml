@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "prolog_kernel"
-version = "0.0.9"
+version = "0.0.2"
 authors = [ { name="Anne Brecklinghaus" } ]
 description = "Extensible Jupyter kernel for (SWI- and SICStus) Prolog"
 readme = "README.md"
