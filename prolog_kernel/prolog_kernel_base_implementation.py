@@ -296,6 +296,8 @@ class PrologKernelBaseImplementation:
 
     def handle_success_response(self, response_dict):
         """
+        Handles a success response by computing output for each term result and sending it to the frontend.
+
         The dictionary response_dict contains the key 'result'.
         The corresponding value contains the results of the Prolog terms read from the cell.
         These are given as a dictionary where the keys are integers starting from 1.
@@ -431,6 +433,8 @@ class PrologKernelBaseImplementation:
 
     def handle_error_response(self, response_dict):
         """
+        Handles an error response by sending an error message to the frontend.
+
         The dictionary response_dict contains the key 'error'.
         The corresponding value is a dictionary containing the error data.
         The member 'data' can contain members 'prolog_message (e.g. a more specific error message) and 'output' (output of the request before the error occurred).
@@ -497,6 +501,8 @@ class PrologKernelBaseImplementation:
 
 
     def send_response_display_data(self, text, additional_style=""):
+        """Sends a response to the frontend containing data for Markdown, LaTeX and plain text."""
+
         # The display data of the response always needs to contain plain text
         # For example, this is shown in Jupyter Console
         # Additionally, markdown text is provided for a formatted output in a Jupyter notebook
@@ -546,8 +552,8 @@ class PrologKernelBaseImplementation:
 
     def handle_print_graph(self, graph_file_content):
         """
-        The string graph_file_content corresponds to the content of a file from which a svg file can be rendered with dot.
-        This file is rendered and sent to the client.
+        The string graph_file_content corresponds to the content of a file defining a graph.
+        It is used to render an svg file with dot, of which the content is then read in and sent to the frontend so that the graph is displayed.
 
         Example
         ------
@@ -600,7 +606,8 @@ class PrologKernelBaseImplementation:
     def handle_print_table(self, print_table_dict):
         """
         The dictionary print_table_dict contains the members 'ValuesLists' and 'VariableNames'.
-        The values are used to populate a table which is sent to the client.
+        ValuesLists is a list of lists where each of them is used to compute one line of the table.
+        VariableNames is a list of strings from which the header of the table is created.
 
         Example
         ------

@@ -5,6 +5,8 @@ A [Jupyter](https://jupyter.org/) kernel for Prolog based on the [IPython kernel
 
 By default, [SICStus Prolog](https://sicstus.sics.se/) and [SWI-Prolog](https://www.swi-prolog.org/) (which is the actual default) are supported. The kernel is implemented in a way that basically all functionality except the loading of configuration files can easily be overriden. This is especially useful for extending the kernel for further Prolog implementations or running code with a different version of an implementation. For further information about this, see [Configuration](#configuration).
 
+Also see the [JupyterLab Prolog CodeMirror Extension](https://github.com/anbre/jupyterlab-prolog-codemirror-extension) for syntax highlighting of Prolog code in JupyterLab.
+
 **Note:** The project is still under development. Even though major changes are unlikely, the possibility cannot be excluded. Furthermore, no liability is accepted for correctness and completeness.
 
 

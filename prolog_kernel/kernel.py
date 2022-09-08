@@ -285,7 +285,7 @@ class PrologKernel(Kernel):
         """
         Change the Prolog implementation to the one with ID prolog_impl_id.
         If there is a running server for that implementation, it is activated.
-        Otherwise, a new one is started.
+        Otherwise, the implementation-specific data is loaded (which starts a new server) and set as the active one.
         Returns True if something goes wrong and the new implementation cannot be used.
         """
 
