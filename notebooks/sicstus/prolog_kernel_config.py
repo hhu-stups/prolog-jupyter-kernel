@@ -1,8 +1,14 @@
 c = get_config()
 
-## If set to True, a log file is created by the Prolog server
+## If set to True, the logging level is set to DEBUG by the kernel so that debugging messages are logged.
+# Default:
+# c.PrologKernel.jupyter_logging = False
+c.PrologKernel.jupyter_logging = True
+
+## If set to True, a log file is created by the Prolog server.
 # Default:
 # c.PrologKernel.server_logging = False
+c.PrologKernel.server_logging = True
 
 ## The ID of the Prolog implementation which is used to execute code.
 # Default:

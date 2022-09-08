@@ -47,9 +47,8 @@ import prolog_kernel.sicstus_kernel_implementation
 from prolog_kernel.prolog_kernel_base_implementation import PrologKernelBaseImplementation
 
 
-# Enable logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
+# Set the logging format
+logging.basicConfig(format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
 
 
 class PrologKernel(Kernel):
@@ -67,7 +66,10 @@ class PrologKernel(Kernel):
 
     # Define default configuration options
 
-    # If set to True, a log file is created by the Prolog server
+    # If set to True, the logging level is set to DEBUG by the kernel so that debugging messages are logged.
+    jupyter_logging = Bool(False).tag(config=True)
+
+    # If set to True, a log file is created by the Prolog server.
     server_logging = Bool(False).tag(config=True)
 
     # The ID of the Prolog implementation which is used to execute code.
@@ -138,6 +140,8 @@ class PrologKernel(Kernel):
         super().__init__(**kwargs)
 
         self.logger = logging.getLogger()
+        # For development, the logging level can be set to level DEBUG, so that all debug messages (including the ones about loading a configuration file) are output
+        #self.logger.setLevel(logging.DEBUG)
 
         # Load the configuration and configured implementation specific data
         self.load_config_file()
@@ -187,9 +191,14 @@ class PrologKernel(Kernel):
             except Exception:
                 self.logger.error("Exception while loading config file " + os.path.join(existing_file_path, config_file_name), exc_info=True)
             else:
-                self.logger.debug("Loaded config file: " + loader.full_filename)
                 # Update the configuration
                 self.update_config(config)
+
+                # If configured, enable the logging of debug messages
+                if self.jupyter_logging:
+                    self.logger.setLevel(logging.DEBUG)
+
+                self.logger.debug("Loaded config file: " + loader.full_filename)
 
 
     def load_implementation_data(self, implementation_id):

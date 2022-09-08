@@ -63,8 +63,14 @@ The kernel can be configured by defining a Python config file named `prolog_kern
 
 
 In general, the kernel can be configured to use a different Prolog server (which is responsible for code execution) or kernel implementation. Furthermore, it can be configured to use another Prolog implementation altogether which might not be supported by default. The following options can be configured:
-- `server_logging`: If set to `True`, a log file is created by the Prolog server
-- `implementation_id`: The ID of the Prolog implementation which is used to execute code
+- `jupyter_logging`: If set to `True`, the logging level is set to DEBUG by the kernel so that debugging messages are logged.
+  - Note that this way, logging debugging messages can only be enabled after reading a configuration file. Therefore, for instance, the user cannot be informed that no configuration file was loaded if none was defined at one of the expected locations.
+  - In order to switch on debugging messages by default, the development installation described in the GitHub repository can be followed and the logging level set to `DEBUG` in the file `kernel.py` (which contains a corresponding comment).
+  - However, note that this causes messages to be printed in the Jupyter console applications, which interferes with the other output.
+
+- `server_logging`: If set to `True`, a log file is created by the Prolog server.
+  - The name of the file consists of the implementation ID preceded by `.prolog\_server\_log_`.
+- `implementation_id`: The ID of the Prolog implementation which is used to execute code.
   - In order to use the default SWI- or SICStus Prolog implementation, the ID `swi` or `sicstus` is expected respectively.
 - `implementation_data`: The implementation specific data which is needed to run the Prolog server for code execution.
   - This is required to be a dictionary containing at least an entry for the configured `implementation_id`.
@@ -74,7 +80,7 @@ In general, the kernel can be configured to use a different Prolog server (which
     - `error_prefix`: The prefix that is output for error messages
     - `informational_prefix`: The prefix that is output for informational messages
     - `program_arguments`: Command line arguments with which the Prolog server can be started
-      - For SWI- and SICStus Prolog, the default Prolog server provided by the kernel can be used by configuring the string "default"
+      - For SWI- and SICStus Prolog, the default Prolog server provided by the kernel can be used by configuring the string "default".
       - In that case, the following arguments are used (where the file path is extended to be absolute):
         - SWI-Prolog:     `["swipl", "-l", "prolog_server/jsonrpc_server.pl", "-t", "jsonrpc_server_start"]`
         - SICStus Prolog: `["sicstus", "-l", "prolog_server/jsonrpc_server.pl", "--goal", "jsonrpc_server_start;halt.", "--nologo"]`

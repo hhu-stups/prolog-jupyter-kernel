@@ -179,6 +179,13 @@ class PrologKernelBaseImplementation:
                 self.is_server_restart_required = True
                 self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "color:red")
                 return {'status': 'error', 'ename' : 'exception', 'evalue' : '', 'traceback' : ''}
+        else:
+            reply_object = {
+                'status': 'ok',
+                'execution_count': self.kernel.execution_count,
+                'payload': [],
+                'user_expressions': {},
+            }
 
         return reply_object
 
