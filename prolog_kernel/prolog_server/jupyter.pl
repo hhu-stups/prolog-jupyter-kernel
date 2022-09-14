@@ -151,7 +151,7 @@ predicate_doc('jupyter:print_query_time', Doc) :-
 predicate_doc('jupyter:print_queries/1', Doc) :-
   atom_concat([
     'jupyter:print_queries(+Ids)',
-    '\n\n    Prints previous queries which were exectued in requests with IDs in Ids.',
+    '\n\n    Prints previous queries which were executed in requests with IDs in Ids.',
     '\n\n    Any $Var terms might be replaced by the variable\'s name.',
     '\n    This is the case if a previous query with ID in Ids contains Var.',
     '\n    Otherwise, $Var is not replaced.'
@@ -197,7 +197,7 @@ predicate_doc('jupyter:print_table/2', Doc) :-
 predicate_doc('jupyter:print_transition_graph/4', Doc) :-
   atom_concat([
     'jupyter:print_transition_graph(+PredSpec, +FromIndex, +ToIndex, +LabelIndex)',
-    '\n\n    Finds all solutions of the predicate with specificaion PredSpec.',
+    '\n\n    Finds all solutions of the predicate with specification PredSpec.',
     '\n    Prints a graph interpreting the solutions as transitions.',
     '\n\n    PredSpec needs to be of the form PredName/PredArity.',
     '\n    Optionally, it can be module name expanded.',

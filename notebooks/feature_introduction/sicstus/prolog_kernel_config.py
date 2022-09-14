@@ -10,7 +10,7 @@ c.PrologKernel.jupyter_logging = True
 # c.PrologKernel.server_logging = False
 c.PrologKernel.server_logging = True
 
-## The ID of the Prolog implementation which is used to execute code.
+## The ID of the Prolog implementation with which the server is started.
 # Default:
 # c.PrologKernel.implementation_id = "swi"
 c.PrologKernel.implementation_id = "sicstus"
@@ -56,7 +56,7 @@ c.PrologKernel.implementation_data = {
        "error_prefix": "ERROR: ",
        "informational_prefix": "% ",
        "program_arguments": ["swipl",
-                             "-l", "../../prolog_kernel/prolog_server/jsonrpc_server.pl",
+                             "-l", "../../../prolog_kernel/prolog_server/jsonrpc_server.pl",
                              "-t", "jsonrpc_server_start"]
    },
    "sicstus": {
@@ -65,7 +65,7 @@ c.PrologKernel.implementation_data = {
        "error_prefix": "! ",
        "informational_prefix": "% ",
        "program_arguments": ["sicstus",
-                             "-l", "../../prolog_kernel/prolog_server/jsonrpc_server.pl",
+                             "-l", "../../../prolog_kernel/prolog_server/jsonrpc_server.pl",
                              "--goal", "jsonrpc_server_start;halt.",
                              "--nologo"]
    }

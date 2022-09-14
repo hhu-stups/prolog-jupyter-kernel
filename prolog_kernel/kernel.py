@@ -72,7 +72,7 @@ class PrologKernel(Kernel):
     # If set to True, a log file is created by the Prolog server.
     server_logging = Bool(False).tag(config=True)
 
-    # The ID of the Prolog implementation which is used to execute code.
+    # The ID of the Prolog implementation with which the server is started.
     # It is required that the implementation_data dictionary contains an item with this key.
     implementation_id = Unicode('swi').tag(config=True)
 

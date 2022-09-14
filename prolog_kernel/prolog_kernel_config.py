@@ -8,7 +8,7 @@ c = get_config()
 # Default:
 # c.PrologKernel.server_logging = False
 
-## The ID of the Prolog implementation which is used to execute code.
+## The ID of the Prolog implementation with which the server is started.
 # Default:
 # c.PrologKernel.implementation_id = "swi"
 

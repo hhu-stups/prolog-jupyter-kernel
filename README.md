@@ -48,7 +48,7 @@ The kernel is provided as a Python package on the [Python Package Index](https:/
 
 ## Usage
 
-The directory [notebooks](./notebooks) contains notebooks demonstrating the features of the kernel when used with SWI- and SICStus Prolog.
+The directory [notebooks/feature_introduction](./notebooks/feature_introduction) contains notebooks demonstrating the features of the kernel when used with SICStus and SWI-Prolog.
 
 Additionally, the file [jsonrpc_server_tests.pl](./prolog_server/jsonrpc_server_tests.pl) defines some PL-Unit tests.
 They provide further examples of what kind of code the Prolog server (and therefore the kernel) can handle and what the expected behavior is.
@@ -70,7 +70,7 @@ In general, the kernel can be configured to use a different Prolog server (which
 
 - `server_logging`: If set to `True`, a log file is created by the Prolog server.
   - The name of the file consists of the implementation ID preceded by `.prolog\_server\_log_`.
-- `implementation_id`: The ID of the Prolog implementation which is used to execute code.
+- `implementation_id`: The ID of the Prolog implementation with which the server is started.
   - In order to use the default SWI- or SICStus Prolog implementation, the ID `swi` or `sicstus` is expected respectively.
 - `implementation_data`: The implementation specific data which is needed to run the Prolog server for code execution.
   - This is required to be a dictionary containing at least an entry for the configured `implementation_id`.
@@ -80,7 +80,7 @@ In general, the kernel can be configured to use a different Prolog server (which
     - `error_prefix`: The prefix that is output for error messages
     - `informational_prefix`: The prefix that is output for informational messages
     - `program_arguments`: Command line arguments with which the Prolog server can be started
-      - For SWI- and SICStus Prolog, the default Prolog server provided by the kernel can be used by configuring the string "default".
+      - For SICStus and SWI-Prolog, the default Prolog server provided by the kernel can be used by configuring the string "default".
       - In that case, the following arguments are used (where the file path is extended to be absolute):
         - SWI-Prolog:     `["swipl", "-l", "prolog_server/jsonrpc_server.pl", "-t", "jsonrpc_server_start"]`
         - SICStus Prolog: `["sicstus", "-l", "prolog_server/jsonrpc_server.pl", "--goal", "jsonrpc_server_start;halt.", "--nologo"]`
@@ -99,7 +99,7 @@ To facilitate finding the cause of the error, before trying to start the Prolog 
 
 The actual kernel code determining the handling of requests is not implemented by the kernel class itself. Instead, there is the file [prolog_kernel_base_implementation.py](./prolog_kernel/prolog_kernel_base_implementation.py) which defines the class `PrologKernelBaseImplementation`. When the kernel is started, a (sub)object of this class is created. It handles the starting of and communication with the Prolog server. For all requests (execution, shutdown, completion, inspection) the kernel receives, a `PrologKernelBaseImplementation` method is called. By creating a subclass of this and defining the path to it as `kernel_implementation_path`, the actual implementation code can be replaced.
 
-If no such path is defined, the path itself or the defined class is invalid, a default implementation is used instead. In case of SWI- and SICStus Prolog, the files [swi_kernel_implementation.py](./prolog_kernel/swi_kernel_implementation.py) and [sicstus_kernel_implementation.py](./prolog_kernel/sicstus_kernel_implementation.py) are used. Otherwise, the base implementation from the file [prolog_kernel_base_implementation.py](./prolog_kernel/prolog_kernel_base_implementation.py) is loaded.
+If no such path is defined, the path itself or the defined class is invalid, a default implementation is used instead. In case of SICStus and SWI-Prolog, the files [swi_kernel_implementation.py](./prolog_kernel/swi_kernel_implementation.py) and [sicstus_kernel_implementation.py](./prolog_kernel/sicstus_kernel_implementation.py) are used. Otherwise, the base implementation from the file [prolog_kernel_base_implementation.py](./prolog_kernel/prolog_kernel_base_implementation.py) is loaded.
 
 
 ## Development
