@@ -11,7 +11,7 @@
 
 
 :- use_module(library(lists), [delete/3]).
-:- use_module(logging, [log/1, log/2]).
+:- use_module(jupyter_logging, [log/1, log/2]).
 
 
 :- multifile user:generate_message_hook/3.

@@ -27,7 +27,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3]).
-:- use_module(logging, [create_log_file/1, log/1, log/2]).
+:- use_module(jupyter_logging, [create_log_file/1, log/1, log/2]).
 :- use_module(jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
 :- use_module(term_handling, [handle_term/6, declaration_end/1, test_definition_end/1, pred_definition_specs/1, term_response/1]).
 :- use_module(output, [send_reply_on_error/0, retrieve_message/2]).
@@ -62,7 +62,7 @@ user:portray_message(error, MessageTerm) :-
 % Send an error reply to let the client know that the server is in a state from which it cannot recover and therefore needs to be killed and restarted.
 handle_unexpected_exception(MessageTerm) :-
   output:send_reply_on_error,
-  logging:log(MessageTerm),
+  jupyter_logging:log(MessageTerm),
   % Retract all data of the current request
   retract(request_data(_CallRequestId, _TermsAndVariables)),
   % Use catch/3, because no clauses might have been asserted
@@ -211,7 +211,7 @@ dispatch_request(enable_logging, Message, _Stack, continue) :-
   !,
   % Send the SICStus version to the client
   Message = request(_Method,CallRequestId,_Params,_RPC),
-  logging:create_log_file(IsSuccess),
+  jupyter_logging:create_log_file(IsSuccess),
   jsonrpc:send_success_reply(CallRequestId, IsSuccess).
 :- if(sicstus).
 dispatch_request(version, Message, _Stack, continue) :-

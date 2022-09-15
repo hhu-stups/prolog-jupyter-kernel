@@ -1,17 +1,12 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools>=61.0",
-  "jupyter_client",
-  "IPython",
-  "ipykernel",
-  "graphviz",
-  "beautifulsoup4",
+  "setuptools>=61.0"
 ]
 
 [project]
 name = "prolog_kernel"
-version = "0.0.3"
+version = "0.0.5"
 authors = [ { name="Anne Brecklinghaus" } ]
 description = "Extensible Jupyter kernel for (SWI- and SICStus) Prolog"
 readme = "README.md"
@@ -22,6 +17,13 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Intended Audience :: Developers",
+]
+dependencies = [
+  "jupyter_client",
+  "IPython",
+  "ipykernel",
+  "graphviz",
+  "beautifulsoup4",
 ]
 
 [project.urls]

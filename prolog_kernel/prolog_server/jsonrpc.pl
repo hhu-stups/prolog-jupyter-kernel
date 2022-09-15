@@ -19,7 +19,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- use_module(library(codesio), [open_codes_stream/2]).
 :- use_module(output, [retrieve_message/2]).
-:- use_module(logging, [log/1, log/2]).
+:- use_module(jupyter_logging, [log/1, log/2]).
 
 
 :- if(swi).
@@ -187,7 +187,7 @@ parse_message(RPC, Message) :-
 
 % write_message(+JSON)
 write_message(JSON) :-
-  logging:log(JSON),
+  jupyter_logging:log(JSON),
   % If sending the JSON message to the client directly fails (because the term JSON might not be parsable to JSON),
   %  the client would receive an imcomplete message.
   % Instead, try writing JSON to a file and send an error reply if this fails.

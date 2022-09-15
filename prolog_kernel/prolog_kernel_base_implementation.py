@@ -372,6 +372,7 @@ class PrologKernelBaseImplementation:
             }
 
         is_error = False
+        first_error_object = None
 
         index = 1
         while str(index) in result:
@@ -384,11 +385,20 @@ class PrologKernelBaseImplementation:
                 self.send_response_display_data(self.implementation_data["informational_prefix"] + 'Successfully halted')
             elif status == "error":
                 is_error = True
-                self.handle_error_response(term_result)
+                error_object = self.handle_error_response(term_result)
+                if not first_error_object:
+                    first_error_object = error_object
             elif status == "success":
                 # Handle any additional data and check if the handling was successful
-                is_additional_data_error = self.handle_additional_data(term_result)
-                is_error = is_error or is_additional_data_error
+                additional_data_error_keys = self.handle_additional_data(term_result)
+                is_error = is_error or additional_data_error_keys
+                if is_error and not first_error_object:
+                    first_error_object = {
+                        'status' : 'error',
+                        'ename' : 'error',
+                        'evalue' : '',
+                        'traceback' : ['The handling of additional data failed for ' + ", ".join(additional_data_error_keys)],
+                    }
 
                 # Send the output to the frontend
                 output = term_result["output"]
@@ -400,7 +410,7 @@ class PrologKernelBaseImplementation:
                     # Send the variable names and values or a success or failure response to the frontend
                     bindings = term_result["bindings"]
                     if bindings == {}:
-                        if is_additional_data_error:
+                        if additional_data_error_keys:
                             # The handling of the additional data has failed
                             response_text = self.implementation_data["failure_response"]
                             additional_style = 'color:red;'
@@ -421,14 +431,18 @@ class PrologKernelBaseImplementation:
                     self.send_response_display_data(response_text, 'font-weight:bold;' + additional_style)
             index = index + 1
 
-        # If at least one of the terms caused an error, an error reply is sent to the client
+        # If at least one of the terms caused an error, an error reply is sent to the client (corresponding to the first error which was encountered)
         if is_error:
-            return {
-               'status' : 'error',
-               'ename' : 'error',
-               'evalue' : '',
-               'traceback' : [],
-            }
+            if first_error_object:
+                self.logger.debug(first_error_object) # TODO löschen
+                return first_error_object
+            else:
+                return {
+                    'status' : 'error',
+                    'ename' : 'error',
+                    'evalue' : '',
+                    'traceback' : [],
+                }
         else:
             return {
                 'status': 'ok',
@@ -480,6 +494,7 @@ class PrologKernelBaseImplementation:
                 output += '\n' + error['data']['prolog_message']
                 response_text = error['data']['prolog_message']
             else:
+                output += '\n' + self.implementation_data["failure_response"]
                 response_text = self.implementation_data["failure_response"]
         elif error_code == -4712:
             # Exception: "prolog_message" contains the error message
@@ -503,7 +518,7 @@ class PrologKernelBaseImplementation:
            'status' : 'error',
            'ename' : ename,
            'evalue' : '',
-           'traceback' : [output],
+           'traceback' : [output], # This is needed for an nbgrader validation result
         }
 
 
@@ -532,24 +547,31 @@ class PrologKernelBaseImplementation:
     def handle_additional_data(self, dict):
         """
         Handles additional data which may be present in the dict.
-        Returns True if something goes wrong during the handling.
+        Any of the data processing methods should return True if something goes wrong during the handling.
+        Returns a list containing the dictionary keys for which the handling did not succeed.
         """
-        is_failure = False
+        failure_keys = []
 
         if 'predicate_atoms' in dict:
-            is_failure = is_failure or self.handle_completion_data_update(dict['predicate_atoms'])
+            if self.handle_completion_data_update(dict['predicate_atoms']):
+                failure_keys.append(['predicate_atoms'])
         if 'print_sld_tree' in dict:
-            is_failure = is_failure or self.handle_print_graph(dict['print_sld_tree'])
+            if self.handle_print_graph(dict['print_sld_tree']):
+                failure_keys.append(['print_sld_tree'])
         if 'print_table' in dict:
-            is_failure = is_failure or self.handle_print_table(dict['print_table'])
+            if self.handle_print_table(dict['print_table']):
+                failure_keys.append(['print_table'])
         if 'print_transition_graph' in dict:
-            is_failure = is_failure or self.handle_print_graph(dict['print_transition_graph'])
+            if self.handle_print_graph(dict['print_transition_graph']):
+                failure_keys.append(['print_transition_graph'])
         if 'retracted_clauses' in dict:
-            is_failure = is_failure or self.handle_retracted_clauses(dict['retracted_clauses'])
+            if self.handle_retracted_clauses(dict['retracted_clauses']):
+                failure_keys.append(['retracted_clauses'])
         if 'set_prolog_impl_id' in dict:
-            is_failure = is_failure or self.handle_set_prolog_impl(dict['set_prolog_impl_id'])
+            if self.handle_set_prolog_impl(dict['set_prolog_impl_id']):
+                failure_keys.append(['set_prolog_impl_id'])
 
-        return is_failure
+        return failure_keys
 
 
     def handle_completion_data_update(self, predicate_atoms):

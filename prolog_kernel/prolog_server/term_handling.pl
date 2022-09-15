@@ -48,7 +48,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
 :- use_module(library(lists), [delete/3, reverse/2, nth1/3]).
-:- use_module(logging, [log/1, log/2]).
+:- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jsonrpc, [send_error_reply/3]).
 :- use_module(request_handling, [loop/3]).
@@ -1495,7 +1495,7 @@ generate_built_in_pred(call(_)).
 
 % generate_exported_pred(-ModuleNameExpandedPredicateHead)
 generate_exported_pred(Module:Pred) :-
-  ServerModules = [jsonrpc, logging, output, request_handling, sicstus_jsonrpc_server, variable_bindings, term_handling],
+  ServerModules = [jsonrpc, jupyter_logging, output, request_handling, sicstus_jsonrpc_server, variable_bindings, term_handling],
   predicate_property(Module:Pred, exported),
   % Exclude exported predicates from any of the modules used for this server except for 'jupyter'
   \+ member(Module, ServerModules).

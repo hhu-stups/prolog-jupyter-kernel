@@ -1,5 +1,5 @@
 
-:- module(logging,
+:- module(jupyter_logging,
     [create_log_file/1,  % create_log_file(-IsSuccess)
      log/1,              % log(+Term)
      log/2               % log(+Control, +Arguments)
@@ -21,7 +21,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 % create_log_file(-IsSuccess)
 create_log_file(true) :-
-  % Open a log file (logging to stdout would send the messages to the client)
+  % Open a log file (jupyter_logging to stdout would send the messages to the client)
   % On Windows platforms, opening a file with SICStus which is alread opened by another process (i.e. another Prolog server) fails
   % Therefore separate log files are created for each Prolog implementation
   catch(current_prolog_flag(dialect, Dialect), _, Dialect = ''),

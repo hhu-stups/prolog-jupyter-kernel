@@ -29,7 +29,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- use_module(library(lists), [reverse/2]).
 :- use_module(library(codesio), [read_term_from_codes/3, write_term_to_codes/3, format_to_codes/3]).
-:- use_module(logging, [log/1, log/2]).
+:- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(output, [query_data/4, debug_mode_for_breakpoints/0]).
 :- use_module(variable_bindings, [var_bindings/1]).
 

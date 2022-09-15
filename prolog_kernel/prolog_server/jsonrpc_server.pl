@@ -13,7 +13,7 @@ swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
 sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
-:- use_module(logging, [log/1, log/2]).
+:- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter, []).
 :- use_module(request_handling, [loop/3]).
 :- use_module(term_handling, [assert_sld_data/4]).
@@ -135,3 +135,6 @@ juypter_message(single_test_directive) --> !,
 juypter_message(trace_pred(TracePredSpec)) --> !,
   ['~w cannot be used in a Jupyter application'-[TracePredSpec]], [nl],
   ['However, there is juypter:trace(Goal)'-[]], [nl].
+juypter_message(no_answer_given) --> !,
+  % Used for the code stub for manually graded tasks of nbgrader assignments
+  ['No answer given'-[]], [nl].
