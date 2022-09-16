@@ -156,7 +156,7 @@ class PrologKernelBaseImplementation:
                 if self.is_server_restart_required:
                     self.logger.debug(self.implementation_id + ': Restart Prolog server')
                     self.start_prolog_server()
-                    self.send_response_display_data(self.implementation_data["informational_prefix"] + 'The Prolog server was restarted', "color:red")
+                    self.send_response_display_data(self.implementation_data["informational_prefix"] + 'The Prolog server was restarted', "\x1b[31m") # red
 
                 # Send an execution request and handle the response
                 response_dict = self.server_request(self.kernel.execution_count, 'call', {'code':code})
@@ -170,14 +170,14 @@ class PrologKernelBaseImplementation:
                 self.handle_interrupt()
                 return {'status': 'error', 'ename' : 'interrupt', 'evalue' : '', 'traceback' : ''}
             except BrokenPipeError:
-                self.logger.error(error_prefix + 'Broken pipe\n' + error_prefix + 'The Prolog server needs to be restarted', "color:red")
+                self.logger.error(error_prefix + 'Broken pipe\n' + error_prefix + 'The Prolog server needs to be restarted', "\x1b[31m") # red
                 self.is_server_restart_required = True
-                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "color:red")
+                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "\x1b[31m") # red
                 return {'status': 'error', 'ename' : 'broken pipe', 'evalue' : '', 'traceback' : ''}
             except Exception as exception:
                 self.logger.error(exception, exc_info=True)
                 self.is_server_restart_required = True
-                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "color:red")
+                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "\x1b[31m") # red
                 return {'status': 'error', 'ename' : 'exception', 'evalue' : '', 'traceback' : ''}
         else:
             reply_object = {
@@ -406,14 +406,14 @@ class PrologKernelBaseImplementation:
                     self.send_response_display_data(str(output))
 
                 if term_result["type"] == "query":
-                    additional_style = ''
+                    ansi_escape_codes = ""
                     # Send the variable names and values or a success or failure response to the frontend
                     bindings = term_result["bindings"]
                     if bindings == {}:
                         if additional_data_error_keys:
                             # The handling of the additional data has failed
                             response_text = self.implementation_data["failure_response"]
-                            additional_style = 'color:red;'
+                            ansi_escape_codes = "\x1b[31m" # red
                         else:
                             response_text = self.implementation_data["success_response"]
                     else:
@@ -428,7 +428,7 @@ class PrologKernelBaseImplementation:
                                 variable_values.append(str(var) + ' = ' + str(val))
                         response_text = ",\n".join(variable_values)
 
-                    self.send_response_display_data(response_text, 'font-weight:bold;' + additional_style)
+                    self.send_response_display_data(response_text, "\x1b[1m" + ansi_escape_codes) # bold
             index = index + 1
 
         # If at least one of the terms caused an error, an error reply is sent to the client (corresponding to the first error which was encountered)
@@ -512,28 +512,22 @@ class PrologKernelBaseImplementation:
             output += '\n' + error['message']
             response_text = self.implementation_data["error_prefix"] + str(error['message']) + '\n'
 
-        self.send_response_display_data(response_text, "color:red; font-weight:bold;")
+        self.send_response_display_data(response_text, "\x1b[31m\x1b[1m") # red and bold
 
         return {
            'status' : 'error',
            'ename' : ename,
            'evalue' : '',
-           'traceback' : [output], # This is needed for an nbgrader validation result
+           'traceback' : [output], # Needed for nbgrader validation
         }
 
 
-    def send_response_display_data(self, text, additional_style=""):
-        """Sends a response to the frontend containing data for Markdown, LaTeX and plain text."""
+    def send_response_display_data(self, text, ansi_escape_codes=""):
+        """Sends a response to the frontend containing plain text."""
 
-        # The display data of the response always needs to contain plain text
-        # For example, this is shown in Jupyter Console
-        # Additionally, markdown text is provided for a formatted output in a Jupyter notebook
-        # In order to be able to export notebooks as LaTeX, latex text needs to be returned
         display_data = {
             'data': {
-                'text/plain': text,
-                'text/markdown': '<pre style="' + self.output_text_style + additional_style + '">' + text + '</pre>',
-                'text/latex': text.replace('\n', '\\\\\n ') # TODO adjust for latex
+                'text/plain': ansi_escape_codes + text + '\x1b[0m'
             },
             'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
@@ -685,7 +679,7 @@ class PrologKernelBaseImplementation:
 
         Example
         ------
-        {'user:app/3': 'app([], A, A) :- !.\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n'}
+        {'user:app/3': 'app([], A, A).\napp([A|B], C, [A|D]) :-\n        app(B, C, D).\n'}
         """
         if retracted_clauses:
             style = """

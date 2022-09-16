@@ -121,10 +121,10 @@ redirect_output_to_file :-
   file_name(output, OutputFileName),
   open(OutputFileName, write, OutputStream),
   assert(output_stream(OutputStream)),
-  % Set the stdout stream to which the goal's output is output by default
-  tell(OutputStream),
-  % Set the stderr stream to which debugging messages are output
-  redirect_user_error_output_to_stream(OutputStream).
+  % Set the streams to which the goal's output and debugging messages are written by default
+  redirect_output_to_stream(current_output, OutputStream),
+  redirect_output_to_stream(user_output, OutputStream),
+  redirect_output_to_stream(user_error, OutputStream).
 
 
 % call_with_exception_handling(+MGoal, -ErrorMessageData)
@@ -194,7 +194,6 @@ cleanup_and_read_output_from_file(Goal, Output) :-
 reset_output_streams(DeleteFile) :-
   retract(output_stream(OutputStream)),
   close(OutputStream),
-  told,
   delete_output_file(DeleteFile).
 
 
@@ -222,7 +221,7 @@ retrieve_message(message_data(Kind, Term), Message) :-
   % Open a file to print the message to it
   file_name(message_output, FileName),
   open(FileName, write, Stream),
-  redirect_user_error_output_to_stream(Stream),
+  redirect_output_to_stream(user_error, Stream),
   % Do not send an error reply when printing the error message
   % Use catch/3, because send_reply_on_error might have been retracted by call_with_output_to_file/3
   catch(retractall(send_reply_on_error), _Exception, true),
@@ -235,13 +234,16 @@ retrieve_message(message_data(Kind, Term), Message) :-
   !.
 
 
-% redirect_user_error_output_to_stream(+Stream)
+% redirect_output_to_stream(+StreamAlias, +Stream)
 :- if(swi).
-redirect_user_error_output_to_stream(Stream) :-
-  set_stream(Stream, alias(user_error)).
+redirect_output_to_stream(StreamAlias, Stream) :-
+  set_stream(Stream, alias(StreamAlias)).
 :- else.
-redirect_user_error_output_to_stream(Stream) :-
-  set_prolog_flag(user_error, Stream).
+redirect_output_to_stream(current_output, Stream) :-
+  !,
+  set_output(Stream).
+redirect_output_to_stream(StreamAlias, Stream) :-
+  set_prolog_flag(StreamAlias, Stream).
 :- endif.
 
 
