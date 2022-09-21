@@ -1,12 +1,12 @@
 
 % This is the main module of the SICStus server.
-% The predicate jsonrpc_server_start/0 can be called to start the server which enters a loop handling requests from a client.
+% The predicate jupyter_server_start/0 can be called to start the server which enters a loop handling requests from a client.
 % The requests and corresponding replies are JSON-RPC 2.0 (https://www.jsonrpc.org/specification) messages sent over the standard streams.
 % The handling of those is based on code from 'jsonrpc_server.pl' from SICStus 4.5.1
 
 
-:- module(sicstus_jsonrpc_server,
-    [jsonrpc_server_start/0]).
+:- module(jupyter_server,
+    [jupyter_server_start/0]).
 
 
 swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
@@ -15,19 +15,19 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter, []).
-:- use_module(request_handling, [loop/3]).
-:- use_module(term_handling, [assert_sld_data/4]).
+:- use_module(jupyter_request_handling, [loop/3]).
+:- use_module(jupyter_term_handling, [assert_sld_data/4]).
 
 
-jsonrpc_server_start :-
+jupyter_server_start :-
   setup,
   % Start the loop handling requests from the client
-  request_handling:loop(continue, [], _ContOut).
+  jupyter_request_handling:loop(continue, [], _ContOut).
 
 
 :- if(swi).
 setup :-
-  % The tests in jsonrpc_server_tests.pl need to be started without printing informational messages
+  % The tests in jupyter_server_tests.pl need to be started without printing informational messages
   % In order for those messages to be printed during an execution, a corresponding Prolog flag has to be set
   set_prolog_flag(verbose, normal).
 :- else.
@@ -36,7 +36,7 @@ setup :-
   leash(off),
   % Make sure that redefinitions are performed without user interaction and warnings are issued
   set_prolog_flag(redefine_warnings, proceed),
-  % The tests in jsonrpc_server_tests.pl need to be started without printing informational messages
+  % The tests in jupyter_server_tests.pl need to be started without printing informational messages
   % In order for those messages to be printed during an execution, a corresponding Prolog flag has to be set
   set_prolog_flag(informational, on).
 :- endif.
@@ -60,7 +60,7 @@ user:prolog_trace_interception(_Port, Frame, _PC, continue) :-
 user:prolog_trace_interception(Port, Frame, _PC, continue) :-
   prolog_frame_attribute(Frame, goal, Goal),
   prolog_frame_attribute(Frame, parent, ParentFrame),
-  term_handling:assert_sld_data(Port, Goal, Frame, ParentFrame),
+  jupyter_term_handling:assert_sld_data(Port, Goal, Frame, ParentFrame),
   % Succeeds if the current query is a call of jupyter:print_sld_tree/1
   !.
 user:prolog_trace_interception(Port, Frame, PC, continue) :-

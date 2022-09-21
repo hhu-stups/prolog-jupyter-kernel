@@ -11,7 +11,7 @@
 % Otherwise, OriginalTermData=same
 
 
-:- module(output,
+:- module(jupyter_query_handling,
     [call_query_with_output_to_file/7,  % call_query_with_output_to_file(+Goal, +CallRequestId, +Bindings, +OriginalTermData, -Output, -ErrorMessageData -IsFailure)
      call_with_output_to_file/3,        % call_with_output_to_file(+Goal, -Output, -ErrorMessageData)
      delete_output_file/1,              % delete_output_file(+DeleteFile)

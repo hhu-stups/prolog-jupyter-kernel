@@ -3,7 +3,7 @@
 % It is based on the module toplevel_variables from SWI-Prolog (version 8.4.2).
 % As this functionality is built-in for SWI-Prolog, this module is needed for SICStus Prolog only.
 
-:- module(variable_bindings,
+:- module(jupyter_variable_bindings,
     [store_var_bindings/1,            % store_var_bindings(+Bindings)
      term_with_stored_var_bindings/4, % term_with_stored_var_bindings(+Term, +Bindings, -ExpandedTerm, -UpdatedBindings)
      var_bindings/1                   % var_bindings(-Bindings)

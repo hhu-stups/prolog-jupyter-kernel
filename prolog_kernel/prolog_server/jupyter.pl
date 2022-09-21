@@ -30,15 +30,15 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(lists), [reverse/2]).
 :- use_module(library(codesio), [read_term_from_codes/3, write_term_to_codes/3, format_to_codes/3]).
 :- use_module(jupyter_logging, [log/1, log/2]).
-:- use_module(output, [query_data/4, debug_mode_for_breakpoints/0]).
-:- use_module(variable_bindings, [var_bindings/1]).
+:- use_module(jupyter_query_handling, [query_data/4, debug_mode_for_breakpoints/0]).
+:- use_module(jupyter_variable_bindings, [var_bindings/1]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % The following predicates need to appear as a single goal in a query.
-% In that case, the execution is handled by the module term_handling.
+% In that case, the execution is handled by the module jupyter_term_handling.
 % Otherwise, an error message is output.
 
 % retry
@@ -276,7 +276,7 @@ atom_concat_([Atom|Atoms], AtomSoFar, ResultAtom) :-
 %
 % Switch the tracer on, call the goal Goal and stop the tracer.
 % Debug mode is switched on so that any breakpoints which might exist can be activated.
-% Because of user:prolog_trace_interception/4 defined in jsonrpc_server, debugging messages are printed to the current output without requesting user interaction.
+% Because of user:prolog_trace_interception/4 defined in jupyter_server, debugging messages are printed to the current output without requesting user interaction.
 trace(Goal) :-
   trace,
   ( call(Goal) ->
@@ -295,7 +295,7 @@ trace(Goal) :-
 % All ports are unleashed so that the debugger does not stop at an invocation to wait for user input.
 % However, breakpoints are not affected by this.
 trace(Goal) :-
-  catch(retractall(output:remove_output_lines_for(trace_debugging_messages)), _Exception, true),
+  catch(retractall(jupyter_query_handling:remove_output_lines_for(trace_debugging_messages)), _Exception, true),
   module_name_expanded(Goal, MGoal),
   switch_trace_mode_on,
   ( call(MGoal) ->
@@ -305,7 +305,7 @@ trace(Goal) :-
   ; nodebug
   ),
   !,
-  output:debug_mode_for_breakpoints.
+  jupyter_query_handling:debug_mode_for_breakpoints.
 
 
 switch_trace_mode_on :-
@@ -314,8 +314,8 @@ switch_trace_mode_on :-
   % The debugger is already switched on
   !,
   % When reading the output, some additional lines need to be removed
-  % This is done if a clause output:remove_output_lines_for(trace_debugging_messages) exists
-  assert(output:remove_output_lines_for(trace_debugging_messages)),
+  % This is done if a clause jupyter_query_handling:remove_output_lines_for(trace_debugging_messages) exists
+  assert(jupyter_query_handling:remove_output_lines_for(trace_debugging_messages)),
   trace.
 switch_trace_mode_on :-
   trace.
@@ -343,7 +343,7 @@ print_variable_bindings :-
 print_variable_bindings.
 :- else.
 print_variable_bindings :-
-  variable_bindings:var_bindings(Bindings),
+  jupyter_variable_bindings:var_bindings(Bindings),
   ( Bindings == [] ->
     format('No previous variable bindings~n', [])
   ; print_variable_bindings(Bindings)
@@ -365,7 +365,7 @@ print_variable_bindings([Name=Value|Bindings]) :-
 %
 % Prints the latest previous query and its runtime in milliseconds.
 print_query_time :-
-  findall(Goal-Runtime, output:query_data(_CallRequestId, Runtime, term_data(Goal, _NameVarPairs), _OriginalTermData), GoalRuntimes),
+  findall(Goal-Runtime, jupyter_query_handling:query_data(_CallRequestId, Runtime, term_data(Goal, _NameVarPairs), _OriginalTermData), GoalRuntimes),
   append(_PreviousGoalRuntimes, [Goal-Runtime], GoalRuntimes),
   format('Query:   ~w~nRuntime: ~w ms~n', [Goal, Runtime]).
 print_query_time :-
@@ -380,7 +380,7 @@ print_query_time :-
 % - expanded with a head to define a predicate
 % If a query contains a term of the form $Var and a previous query contains the variable Var, $Var is replaced by the variable name.
 print_queries(Ids) :-
-  findall(TermData-OriginalTermData, (member(Id, Ids), output:query_data(Id, _Runtime, TermData, OriginalTermData)), QueriesData),
+  findall(TermData-OriginalTermData, (member(Id, Ids), jupyter_query_handling:query_data(Id, _Runtime, TermData, OriginalTermData)), QueriesData),
   print_queries(QueriesData, []).
 
 

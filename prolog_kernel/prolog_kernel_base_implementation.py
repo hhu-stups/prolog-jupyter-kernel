@@ -24,7 +24,7 @@ path = os.path.dirname(__file__)
 
 class PrologKernelBaseImplementation:
 
-    output_text_style = "font-family: Menlo, Consolas, 'DejaVu Sans Mono', monospace; font-size: 13px; line-height: 1.3077;"
+    error_ansi_escape_codes =  "\x1b[1;31m" # red and bold
 
     def __init__(self, kernel):
         self.kernel = kernel
@@ -156,7 +156,7 @@ class PrologKernelBaseImplementation:
                 if self.is_server_restart_required:
                     self.logger.debug(self.implementation_id + ': Restart Prolog server')
                     self.start_prolog_server()
-                    self.send_response_display_data(self.implementation_data["informational_prefix"] + 'The Prolog server was restarted', "\x1b[31m") # red
+                    self.send_response_display_data(self.implementation_data["informational_prefix"] + 'The Prolog server was restarted', self.error_ansi_escape_codes)
 
                 # Send an execution request and handle the response
                 response_dict = self.server_request(self.kernel.execution_count, 'call', {'code':code})
@@ -170,14 +170,14 @@ class PrologKernelBaseImplementation:
                 self.handle_interrupt()
                 return {'status': 'error', 'ename' : 'interrupt', 'evalue' : '', 'traceback' : ''}
             except BrokenPipeError:
-                self.logger.error(error_prefix + 'Broken pipe\n' + error_prefix + 'The Prolog server needs to be restarted', "\x1b[31m") # red
+                self.logger.error(error_prefix + 'Broken pipe\n' + error_prefix + 'The Prolog server needs to be restarted', self.error_ansi_escape_codes)
                 self.is_server_restart_required = True
-                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "\x1b[31m") # red
+                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', self.error_ansi_escape_codes)
                 return {'status': 'error', 'ename' : 'broken pipe', 'evalue' : '', 'traceback' : ''}
             except Exception as exception:
                 self.logger.error(exception, exc_info=True)
                 self.is_server_restart_required = True
-                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', "\x1b[31m") # red
+                self.send_response_display_data(error_prefix + 'Something went wrong\n' + error_prefix + 'The Prolog server needs to be restarted\n', self.error_ansi_escape_codes)
                 return {'status': 'error', 'ename' : 'exception', 'evalue' : '', 'traceback' : ''}
         else:
             reply_object = {
@@ -434,7 +434,6 @@ class PrologKernelBaseImplementation:
         # If at least one of the terms caused an error, an error reply is sent to the client (corresponding to the first error which was encountered)
         if is_error:
             if first_error_object:
-                self.logger.debug(first_error_object) # TODO löschen
                 return first_error_object
             else:
                 return {
@@ -512,7 +511,7 @@ class PrologKernelBaseImplementation:
             output += '\n' + error['message']
             response_text = self.implementation_data["error_prefix"] + str(error['message']) + '\n'
 
-        self.send_response_display_data(response_text, "\x1b[31m\x1b[1m") # red and bold
+        self.send_response_display_data(response_text, self.error_ansi_escape_codes)
 
         return {
            'status' : 'error',
@@ -527,7 +526,7 @@ class PrologKernelBaseImplementation:
 
         display_data = {
             'data': {
-                'text/plain': ansi_escape_codes + text + '\x1b[0m'
+                'text/plain': ansi_escape_codes + text
             },
             'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
@@ -619,8 +618,7 @@ class PrologKernelBaseImplementation:
         display_data = {
             'data': {
                 'text/plain': graph_file_content,
-                'image/svg+xml': svg_content,
-                #'text/latex': "", TODO?
+                'image/svg+xml': svg_content
             },
             'metadata': {}}
         self.kernel.send_response(self.kernel.iopub_socket, 'display_data', display_data)
@@ -685,7 +683,7 @@ class PrologKernelBaseImplementation:
             style = """
             <style>
             details  {
-            """ + self.output_text_style + """
+              font-family: Menlo, Consolas, 'DejaVu Sans Mono', monospace; font-size: 13px;
             }
 
             details > summary {

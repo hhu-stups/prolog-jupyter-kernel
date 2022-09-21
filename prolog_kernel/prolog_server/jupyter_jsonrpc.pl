@@ -3,7 +3,7 @@
 % It is based on jsonrpc_server.pl and jsonrpc_client.pl from SICStus 4.5.1
 
 
-:- module(jsonrpc,
+:- module(jupyter_jsonrpc,
     [json_error_term/5,           % json_error_term(+ErrorCode, +ErrorMessageData, +Output, +AdditionalData, -JsonErrorTerm)
      next_jsonrpc_message/1,      % next_jsonrpc_message(-Message)
      parse_json_terms_request/3,  % parse_json_terms_request(+Params, -TermsAndVariables, -ParsingErrorMessageData)
@@ -18,7 +18,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [open_codes_stream/2]).
-:- use_module(output, [retrieve_message/2]).
+:- use_module(jupyter_query_handling, [retrieve_message/2]).
 :- use_module(jupyter_logging, [log/1, log/2]).
 
 
@@ -69,7 +69,7 @@ jsonrpc_error(Code, Message, json([code=Code,message=Message])).
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, JsonErrorTerm) :-
-  output:retrieve_message(ErrorMessageData, PrologMessage),
+  jupyter_query_handling:retrieve_message(ErrorMessageData, PrologMessage),
   error_data(PrologMessage, Output, AdditionalData, ErroData),
   error_object_code(ErrorCode, NumericErrorCode, JsonRpcErrorMessage),
   jsonrpc_error(NumericErrorCode, JsonRpcErrorMessage, ErroData, JsonErrorTerm).
@@ -143,7 +143,7 @@ error_object_code(unhandled_exception, -4715, 'Unhandled exception').
 % send_json_request(+Method, +Params, +Id, +InputStream, +OutputStream, -Reply)
 %
 % Sends a request by writing it to the input stream and reads the response from the output stream.
-% Used for the tests in sicstus_jsonrpc_server_tests.pl.
+% Used for the tests in jupyter_server_tests.pl.
 send_json_request(Method, Params, Id, InputStream, OutputStream, Reply) :-
   jsonrpc_request(Method, Params, Id, Request),
   % Send the request

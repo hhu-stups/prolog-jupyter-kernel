@@ -32,7 +32,7 @@
 %   - any other term which is the only one of a request
 
 
-:- module(term_handling,
+:- module(jupyter_term_handling,
     [assert_sld_data/4,        % assert_sld_data(Port, Goal, Frame, ParentFrame)
      declaration_end/1,        % declaration_end(+LoadFile)
      handle_term/6,            % handle_term(+Term, +IsSingleTerm, +CallRequestId, +Stack, +Bindings, -Cont)
@@ -49,14 +49,14 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
 :- use_module(library(lists), [delete/3, reverse/2, nth1/3]).
 :- use_module(jupyter_logging, [log/1, log/2]).
-:- use_module(output, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
-:- use_module(jsonrpc, [send_error_reply/3]).
-:- use_module(request_handling, [loop/3]).
+:- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
+:- use_module(jupyter_jsonrpc, [send_error_reply/3]).
+:- use_module(jupyter_request_handling, [loop/3]).
 
 :- if(sicstus).
 :- use_module(library(aggregate), [forall/2]).
 :- use_module(library(file_systems), [delete_file/1]).
-:- use_module(variable_bindings, [term_with_stored_var_bindings/4, store_var_bindings/1]).
+:- use_module(jupyter_variable_bindings, [term_with_stored_var_bindings/4, store_var_bindings/1]).
 :- endif.
 
 
@@ -157,7 +157,7 @@ handle_term(Head, false, _CallRequestId, _Stack, Bindings, continue) :-
 % Directives
 
 % The directives begin_tests and end_tests are handled specially.
-% All other directives are called with output:call_with_output_to_file/3.
+% All other directives are called with jupyter_query_handling:call_with_output_to_file/3.
 % The runtime of the exeuction and additional query data is not asserted as it is the case for queries.
 % Furthermore, a retry is not possible and a directive's variable bindings are not sent to the client.
 
@@ -267,7 +267,7 @@ declaration_end(LoadFile) :-
     % "% compiled cwd/jupyter_declaration.pl in module user, 0 msec 112 bytes"
     prolog_flag(informational, PreviousInformationalValue, off),
     % When loading the file, an exception or warning might be output
-    output:call_with_output_to_file(load_files(DeclarationFileName), Output, ErrorMessageData),
+    jupyter_query_handling:call_with_output_to_file(load_files(DeclarationFileName), Output, ErrorMessageData),
     % Reset the value of the Prolog flag 'informational'
     prolog_flag(informational, _, PreviousInformationalValue)
   ; otherwise ->
@@ -423,7 +423,7 @@ retract_previous_clauses(Module:PredName/PredArity, PredDefinitionSpecs, [Module
   functor(Head, PredName, PredArity),
   clause(Module:Head, _Body),
   % Use listing/1 to get all the clauses that are to be retracted.
-  output:call_with_output_to_file(listing(Module:PredName/PredArity), ListingOutput, ExceptionMessage),
+  jupyter_query_handling:call_with_output_to_file(listing(Module:PredName/PredArity), ListingOutput, ExceptionMessage),
   var(ExceptionMessage),
   !,
   % Create an atom of MPredSpec so that it is JSON parsable
@@ -470,11 +470,11 @@ expand_dcg_term(DCG, ExpandedDCG) :-
 
 % Queries
 
-% In case of any other query not handled by any of the predicates defined above, the query is called by output:call_query_with_output_to_file/7.
+% In case of any other query not handled by any of the predicates defined above, the query is called by jupyter_query_handling:call_query_with_output_to_file/7.
 % Before calling it, any $Var terms are replaced by corresponding values from previous queries.
 % Additionally, the output of the goal and debugging messages are redirected to a file so that it can be read in and sent to the client.
 
-% output:call_query_with_output_to_file/7 leaves a choice point.
+% jupyter_query_handling:call_query_with_output_to_file/7 leaves a choice point.
 % This way, when a 'retry' term is encountered in a future request, its failing causes the goal to be retried.
 
 % handle_query_term(+Term, +IsDirective, +CallRequestId, +Stack, +Bindings, +LoopCont, -Cont)
@@ -501,7 +501,7 @@ replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings,
   catch(toplevel_variables:expand_query(Term, UpdatedTerm, Bindings, UpdatedBindings), Exception, true).
 :- else.
 replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings, Exception) :-
-  catch(variable_bindings:term_with_stored_var_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings), Exception, true).
+  catch(jupyter_variable_bindings:term_with_stored_var_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings), Exception, true).
 :- endif.
 
 
@@ -580,8 +580,8 @@ handle_query_term_(Query, IsDirective, CallRequestId, Stack, Bindings, OriginalT
 %  It is needed for retry/0 and cut/0 queries.
 % Bindings is a list of Name=Var pairs, where Name is the name of a variable Var occurring in the goal Goal.
 % LoopCont is one of continue and cut.
-%  If LoopCont = cut, the recurse loop (request_handling:loop/3) will exit right away without making retrys of a term possible.
-% Cont will be processed by request_handling:loop/3.
+%  If LoopCont = cut, the recurse loop (jupyter_request_handling:loop/3) will exit right away without making retrys of a term possible.
+% Cont will be processed by jupyter_request_handling:loop/3.
 handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData, LoopCont, Cont) :-
   % In order to send the goal to the client, it has to be converted to an atom
   % This has to be done before calling it causes variables to be bound
@@ -590,7 +590,7 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
   retractall(is_retry(_)),
   asserta(is_retry(false)),
   % Call the goal Goal
-  output:call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure),
+  jupyter_query_handling:call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure),
   retry_message_and_output(GoalAtom, Output, RetryMessageAndOutput),
   % Exception, failure or success from Goal
   ( nonvar(ErrorMessageData) -> % Exception
@@ -609,7 +609,7 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
     % The loop will
     % - exit right away if LoopCont=cut
     % - fail if it receives a request to retry Goal
-    request_handling:loop(LoopCont, RecStack, RecCont),
+    jupyter_request_handling:loop(LoopCont, RecStack, RecCont),
     ( RecCont = cut,
       !,
       Cont = continue
@@ -651,7 +651,7 @@ update_variable_bindings(BindingsWithoutSingletons) :-
   toplevel_variables:expand_answer(BindingsWithoutSingletons, _NewBindings).
 :- else.
 update_variable_bindings(BindingsWithoutSingletons) :-
-  variable_bindings:store_var_bindings(BindingsWithoutSingletons).
+  jupyter_variable_bindings:store_var_bindings(BindingsWithoutSingletons).
 :- endif.
 
 
@@ -761,7 +761,7 @@ same_var([_Binding|BindingsWithoutSingletons], Var) :-
 % Retry
 
 % If there is no active goal, an error message is sent to the client.
-% Otherwise, in order to retry an active previous goal, fails into the caller (output:call_query_with_output_to_file/7).
+% Otherwise, in order to retry an active previous goal, fails into the caller (jupyter_query_handling:call_query_with_output_to_file/7).
 % The goal which is retried is output.
 
 % handle_retry(+CallRequestId, +Stack)
@@ -770,7 +770,7 @@ handle_retry(Stack) :-
     % Tell caller that the current query is a retry
     asserta(is_retry(true)),
     % Redirect all output to a file and call statistics/2 to compute the runtime as would normally be done before calling a query
-    output:redirect_output_to_file,
+    jupyter_query_handling:redirect_output_to_file,
     statistics(walltime, _Value),
     fail
   ; otherwise -> % No active call
@@ -783,7 +783,7 @@ handle_retry(Stack) :-
 % Cut
 
 % If there is no active goal, an error message is sent to the client.
-% Otherwise, Cont=cut causes possible choice points of output:call_query_with_output_to_file/7 in handle_query/8 to be cut.
+% Otherwise, Cont=cut causes possible choice points of jupyter_query_handling:call_query_with_output_to_file/7 in handle_query/8 to be cut.
 % A message informing the user about the new active query is displayed.
 
 % handle_cut(+Stack, -Cont)
@@ -834,7 +834,7 @@ handle_halt :-
 % The header of the table will contain the names of the variables occurring in Goal.
 % Bindings is a list of Name=Var pairs, where Name is the name of a variable Var occurring in the goal Goal.
 handle_print_table_with_findall(Bindings, Goal) :-
-  ( output:call_with_output_to_file(term_handling:findall_results_and_var_names(Goal, Bindings, Results, VarNames), Output, ErrorMessageData),
+  ( jupyter_query_handling:call_with_output_to_file(jupyter_term_handling:findall_results_and_var_names(Goal, Bindings, Results, VarNames), Output, ErrorMessageData),
     % Success or exception from findall_results_and_var_names/4
     ( nonvar(ErrorMessageData) ->
       !,
@@ -983,7 +983,7 @@ test_definition_end(LoadFile) :-
   % When loading the file, an exception or warning might be output
   ( LoadFile==true ->
     % When loading the file, an exception or warning might be output
-    output:call_with_output_to_file(load_files(TestFileName), Output, ErrorMessageData)
+    jupyter_query_handling:call_with_output_to_file(load_files(TestFileName), Output, ErrorMessageData)
   ; otherwise ->
     Output = ''
   ),
@@ -1119,7 +1119,7 @@ handle_print_sld_tree(Goal, Bindings) :-
   % Retract previous data
   catch(retractall(sld_data(_GoalCodes, _Inv, _ParentInv)), _GoalInvDataException, true),
   % Call the goal and collect the needed data
-  output:call_query_with_output_to_file(term_handling:call_with_sld_data_collection(Goal, Exception, IsFailure), 0, Bindings, _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
+  jupyter_query_handling:call_query_with_output_to_file(jupyter_term_handling:call_with_sld_data_collection(Goal, Exception, IsFailure), 0, Bindings, _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
   retractall(collect_sld_data),
   % Compute the graph file content
   sld_graph_file_content(GraphFileContentAtom),
@@ -1161,7 +1161,7 @@ call_with_sld_data_collection(Goal, Exception, IsFailure) :-
   module_name_expanded(Goal, MGoal),
   BreakpointConditions = [call]-[proceed, goal(Module:DebuggerGoal), inv(Inv), parent_inv(ParentInv), true(assert_sld_data(call, Module:DebuggerGoal, Inv, ParentInv))],
   % Make sure that when the output is read in, some informational messages are removed
-  assert(output:remove_output_lines_for(sld_tree_breakpoint_messages)),
+  assert(jupyter_query_handling:remove_output_lines_for(sld_tree_breakpoint_messages)),
   % Calling debug/0 makes sure that an informational message is always output which can then be removed
   debug,
   catch(
@@ -1495,7 +1495,7 @@ generate_built_in_pred(call(_)).
 
 % generate_exported_pred(-ModuleNameExpandedPredicateHead)
 generate_exported_pred(Module:Pred) :-
-  ServerModules = [jsonrpc, jupyter_logging, output, request_handling, sicstus_jsonrpc_server, variable_bindings, term_handling],
+  ServerModules = [jupyter_jsonrpc, jupyter_logging, jupyter_query_handling, jupyter_request_handling, jupyter_server, jupyter_term_handling, jupyter_variable_bindings],
   predicate_property(Module:Pred, exported),
   % Exclude exported predicates from any of the modules used for this server except for 'jupyter'
   \+ member(Module, ServerModules).
@@ -1529,7 +1529,7 @@ name_var_pairs([Variable|Variables], CurrentCharacterCode, [NameAtom=Variable|Bi
 
 % handle_print_stack(+Stack, +CallRequestId)
 handle_print_stack(Stack, CallRequestId) :-
-  handle_query(term_handling:print_stack(Stack), false, CallRequestId, Stack, [], _OriginalTermData, cut, _Cont).
+  handle_query(jupyter_term_handling:print_stack(Stack), false, CallRequestId, Stack, [], _OriginalTermData, cut, _Cont).
 
 
 % print_stack(+Stack)
@@ -1560,7 +1560,7 @@ print_stack_([Query|Queries]) :-
 :- if(sicstus).
 % handle_abolish(+Goal, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont)
 handle_abolish(Goal, CallRequestId, OriginalTermData) :-
-  output:call_query_with_output_to_file(Goal, CallRequestId, [], OriginalTermData, Output, ErrorMessageData, IsFailure),
+  jupyter_query_handling:call_query_with_output_to_file(Goal, CallRequestId, [], OriginalTermData, Output, ErrorMessageData, IsFailure),
   % Exception, failure or success from Goal
   ( nonvar(ErrorMessageData) -> % Exception
     !,
@@ -1615,7 +1615,7 @@ assert_success_response(Type, Bindings, Output, AdditionalData) :-
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 assert_error_response(ErrorCode, ErrorMessageData, Output, AdditionalData) :-
-  jsonrpc:json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, ErrorData),
+  jupyter_jsonrpc:json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, ErrorData),
   assertz(term_response(json([status=error, error=ErrorData]))).
 
 

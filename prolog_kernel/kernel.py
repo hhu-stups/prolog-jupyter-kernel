@@ -79,11 +79,11 @@ class PrologKernel(Kernel):
     # The default program argutments for SWI- and SICStus Prolog
     default_program_arguments = {
         "swi": ["swipl",
-                "-l", "prolog_server/jsonrpc_server.pl",
-                "-t", "jsonrpc_server_start"],
+                "-l", "prolog_server/jupyter_server.pl",
+                "-t", "jupyter_server_start"],
         "sicstus": ["sicstus",
-                    "-l", "prolog_server/jsonrpc_server.pl",
-                    "--goal", "jsonrpc_server_start;halt.",
+                    "-l", "prolog_server/jupyter_server.pl",
+                    "--goal", "jupyter_server_start;halt.",
                     "--nologo"]
     }
 
@@ -97,8 +97,8 @@ class PrologKernel(Kernel):
     # - "program_arguments": The command line arguments (a list of strings) with which the Prolog server can be started
     #                        For SWI- and SICStus Prolog, the default Prolog server can be used by configuring the string "default"
     #                        In that case, the following arguments are used (where the file path is extended to be absolute)
-    #                        SWI-Prolog:     ["swipl", "-l", "prolog_server/jsonrpc_server.pl", "-t", "jsonrpc_server_start"]
-    #                        SICStus Prolog: ["sicstus", "-l", "prolog_server/jsonrpc_server.pl", "--goal", "jsonrpc_server_start;halt.", "--nologo"]
+    #                        SWI-Prolog:     ["swipl", "-l", "prolog_server/jupyter_server.pl", "-t", "jupyter_server_start"]
+    #                        SICStus Prolog: ["sicstus", "-l", "prolog_server/jupyter_server.pl", "--goal", "jupyter_server_start;halt.", "--nologo"]
     # Additionally, a "kernel_implementation_path" can be provided, which needs to be an absolute path to a Python file.
     # The corresponding module is required to define a subclass of PrologKernelBaseImplementation named PrologKernelImplementation.
     # This can be used to override some of the kernel's basic behavior.
@@ -317,9 +317,7 @@ class PrologKernel(Kernel):
                 display_data = {
                     'data': {
                         'text/plain': load_exception_message,
-                        'text/markdown': '<pre style="' + self.active_kernel_implementation.output_text_style + 'color:red">' + load_exception_message + '</pre>',
-                        'text/latex': load_exception_message.replace('\n', '\\\\\n ') # TODO adjust for latex
-                    },
+                        'text/markdown': '<pre style="' + self.active_kernel_implementation.output_text_style + 'color:red">' + load_exception_message + '</pre>'                    },
                     'metadata': {}}
                 self.send_response(self.iopub_socket, 'display_data', display_data)
                 return True

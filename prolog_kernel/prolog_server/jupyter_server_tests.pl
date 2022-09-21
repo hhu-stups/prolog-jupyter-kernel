@@ -1,5 +1,5 @@
 
-% This file provides tests for the Prolog server defined in the module jsonrpc_server.
+% This file provides tests for the Prolog server defined in the module jupyter_server.
 % Some of the tests rely on exact invocation numbers, which is why they might fail when the source code is changed or when a single test is run instead of test unit.
 
 
@@ -11,11 +11,11 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(process), [process_create/3, process_release/1]).
 
 :- if(swi).
-:- use_module(jsonrpc, [send_json_request/6]).
-:- use_module(jsonrpc_server).
+:- use_module(jupyter_jsonrpc, [send_json_request/6]).
+:- use_module(jupyter_server).
 :- else.
-:- use_module('jsonrpc', [send_json_request/6]).
-:- use_module('jsonrpc_server').
+:- use_module(jupyter_jsonrpc, [send_json_request/6]).
+:- use_module(jupyter_server).
 :- endif.
 
 
@@ -25,15 +25,15 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 % process_initialization_data(-Args, -Executable)
 :- if(swi).
 process_initialization_data(Args, Executable) :-
-  Args = ['-l', 'jsonrpc_server',
-          '-t', 'jsonrpc_server_start',
+  Args = ['-l', 'jupyter_server',
+          '-t', 'jupyter_server_start',
           '-q'],
   % The value of the Prolog flag executable is the pathname of the running executable
   current_prolog_flag(executable, Executable).
 :- else.
 process_initialization_data(Args, Executable) :-
-  Args = ['-l', 'jsonrpc_server',
-          '--goal', 'jsonrpc_server_start;halt.',
+  Args = ['-l', 'jupyter_server',
+          '--goal', 'jupyter_server_start;halt.',
           '--nologo', '--noinfo'],
   % $SP_APP_PATH: path to the SICStus that is running this file
   Executable = '$SP_APP_PATH'.
@@ -74,7 +74,7 @@ release_process(ProcReference, InputStream, OutputStream) :-
 send_json_request(Method, Params, Id, Reply) :-
   process_data(_ProcReference, InputStream, OutputStream),
   !,
-  jsonrpc:send_json_request(Method, Params, Id, InputStream, OutputStream, Reply).
+  jupyter_jsonrpc:send_json_request(Method, Params, Id, InputStream, OutputStream, Reply).
 send_json_request(_Method, _Params, _Id, _Reply) :-
   print_message(error, server_tests(server_not_running)).
 
@@ -169,7 +169,7 @@ server_tests_message(expected_success_result(Code, Result)) --> !,
   ['    Expected a single success result for ~q'-[Code]], [nl],
   ['    Got:      ~q'-[Result]], [nl].
 server_tests_message(server_not_running) --> !,
-  ['The jsonrpc server is not running'-[]], [nl].
+  ['The server is not running'-[]], [nl].
 
 
 :- discontiguous
@@ -1102,7 +1102,7 @@ expected_prolog_message_subterm(trace_2, 0, 99, 'ERROR: trace/2 cannot be used i
 :- else.
 expected_output(exception_in_trace, '        1      1 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n        1      1 Exception: 3 is 1+x').
 expected_output(trace_failure, '        3      1 Call: app([1,2],[3],[1,3])\n        4      2 Call: app([2],[3],[3])\n        4      2 Fail: app([2],[3],[3])\n        3      1 Fail: app([1,2],[3],[1,3])').
-expected_output(jupyter_trace, '        6      1 Call: app([1],[2],[1,2])\n        7      2 Call: app([],[2],[2])\n        7      2 Exit: app([],[2],[2])\n        6      1 Exit: app([1],[2],[1,2])\n        8      1 Call: print(done)\ndone\n        8      1 Exit: print(done)').
+expected_output(jupyter_trace, '        1      1 Call: app([1],[2],[1,2])\n        2      2 Call: app([],[2],[2])\n        2      2 Exit: app([],[2],[2])\n        1      1 Exit: app([1],[2],[1,2])\n        3      1 Call: print(done)\ndone\n        3      1 Exit: print(done)').
 
 expected_prolog_message_subterm(trace_0, 0, 89, '! trace/0 cannot be used in a Jupyter application\n! However, there is juypter:trace(Goal)').
 expected_prolog_message_subterm(leash_1, 0, 114, '! The leash mode cannot be changed in a Jupyter application as no user interaction can be provided at a breakpoint').
@@ -1120,7 +1120,8 @@ define_app_predicates :-
   check_equality(DefinitionResult, ExpectedDefinitionResult).
 
 
-% Some of these tests rely on exact invocation numbers, which is why they might fail when the source code is changed or when a single test is run instead of test unit.
+% For SICStus Prolog, some of the following tests rely on exact invocation numbers, which is why they might fail when the source code is changed.
+% For the same reason, the server is restarted before those tests.
 
 :- begin_tests(debugging, [setup((start_process, define_app_predicates)), cleanup(release_process(true))]).
 
@@ -1198,7 +1199,7 @@ test(spypoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
 
 :- else.
 
-test(jupyter_trace, [true(DebuggingResult = ExpectedDebuggingResult)]) :-
+test(jupyter_trace, [setup((release_process(true), start_process, define_app_predicates)), true(DebuggingResult = ExpectedDebuggingResult)]) :-
   % Print the trace of the predicate app/3
   TraceRequest = 'jupyter:trace((app([1], [2], [1,2]), print(done))).',
   expected_output(jupyter_trace, ExpectedOutput),
@@ -1215,8 +1216,8 @@ test(jupyter_trace, [true(DebuggingResult = ExpectedDebuggingResult)]) :-
   ExpectedDebuggingResult = [type=query,bindings=json([]),output='The debugger is switched off\nNo leashing\nUndefined predicates will raise an exception (error)\nThere are no breakpoints'],
   send_call_with_single_success_result(DebuggingRequest, 6, DebuggingResult).
 
-% As this test relies on invocation numbers, it likely fails after adjusting any
-test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
+% As this test relies on invocation numbers, it will likely fail after adjusting any of the server code
+test(breakpoint_and_trace, [setup((release_process(true), start_process, define_app_predicates)), true(Call3Result = ExpectedCall3Result)]) :-
   % Add a breakpoint which causes only the first argument of a app/3 goal to be printed
   AddBreakpointRequest = 'add_breakpoint(pred(app/3)-[print-[1], proceed], _BID).',
   ExpectedAddBreakpointResult = [type=query,bindings=json([]),output='% The debugger will first zip -- showing spypoints (zip)\n% Conditional spypoint for user:app/3 added, BID=1'],
@@ -1224,29 +1225,29 @@ test(breakpoint_and_trace, [true(Call3Result = ExpectedCall3Result)]) :-
   check_equality(AddBreakpointResult, ExpectedAddBreakpointResult),
   % Call the predicate app/3
   CallRequest = 'app([1], [2], [1,2]).',
-  ExpectedCallResult = [type=query,bindings=json([]),output=' *     10      1 Call: ^1 [1]\n *     11      2 Call: ^1 []\n *     11      2 Exit: ^1 []\n *     10      1 Exit: ^1 [1]'],
+  ExpectedCallResult = [type=query,bindings=json([]),output=' *      1      1 Call: ^1 [1]\n *      2      2 Call: ^1 []\n *      2      2 Exit: ^1 []\n *      1      1 Exit: ^1 [1]'],
   send_call_with_single_success_result(CallRequest, 8, CallResult),
   check_equality(CallResult, ExpectedCallResult),
   % Created breakpoints are activated during a jupyter:trace/1 call
   TraceRequest = 'jupyter:trace(app([1], [2], [3], [1,2,3])).',
-  ExpectedTraceResult = [type=query,bindings=json([]),output='       12      1 Call: app([1],[2],[3],[1,2,3])\n *     13      2 Call: ^1 [2]\n *     14      3 Call: ^1 []\n *     14      3 Exit: ^1 []\n *     13      2 Exit: ^1 [2]\n *     15      2 Call: ^1 [1]\n *     16      3 Call: ^1 []\n *     16      3 Exit: ^1 []\n *     15      2 Exit: ^1 [1]\n       12      1 Exit: app([1],[2],[3],[1,2,3])'],
+  ExpectedTraceResult = [type=query,bindings=json([]),output='        3      1 Call: app([1],[2],[3],[1,2,3])\n *      4      2 Call: ^1 [2]\n *      5      3 Call: ^1 []\n *      5      3 Exit: ^1 []\n *      4      2 Exit: ^1 [2]\n *      6      2 Call: ^1 [1]\n *      7      3 Call: ^1 []\n *      7      3 Exit: ^1 []\n *      6      2 Exit: ^1 [1]\n        3      1 Exit: app([1],[2],[3],[1,2,3])'],
   send_call_with_single_success_result(TraceRequest, 9, TraceResult),
   check_equality(TraceResult, ExpectedTraceResult),
   % Since there is a breakpoint, after the jupyter:trace/1 call, debug mode is still on and debugging messages are printed
   Call2Request = 'app([1], [2], [1,2]).',
-  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3378     13 Call: ^1 [1]\n *   3379     14 Call: ^1 []\n *   3379     14 Exit: ^1 []\n *   3378     13 Exit: ^1 [1]'],
+  ExpectedCall2Result = [type=query,bindings=json([]),output=' *   3371     13 Call: ^1 [1]\n *   3372     14 Call: ^1 []\n *   3372     14 Exit: ^1 []\n *   3371     13 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call2Request, 10, Call2Result),
   check_equality(Call2Result, ExpectedCall2Result),
   % After an exception, debug mode is still on and debugging messages are printed
   ExceptionRequest = 'jupyter:trace((3 is 1 + x)).',
-  ExpectedExceptionOutput = '     5410     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5410     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5401     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5400     20 Exception: call(jupyter:trace(3 is 1+x))',
+  ExpectedExceptionOutput = '     5405     22 Call: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5405     22 Exception: 3 is 1+x\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5396     21 Exception: jupyter:trace(3 is 1+x)\n! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x\n     5395     20 Exception: call(jupyter:trace(3 is 1+x))',
   ExpectedPrologMessage = '! Type error in argument 2 of (is)/2\n! expected evaluable, but found x/0\n! goal:  3 is 1+x',
   Error = json([code= -4712,message='Exception',data=json([prolog_message=PrologMessage, output=ExceptionOutput])]),
   send_call_with_single_error_result(ExceptionRequest, 11, Error),
   check_equality(ExceptionOutput, ExpectedExceptionOutput),
   check_equality(PrologMessage, ExpectedPrologMessage),
   Call3Request = 'app([1], [2], [1,2]).',
-  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10383     22 Call: ^1 [1]\n *  10384     23 Call: ^1 []\n *  10384     23 Exit: ^1 []\n *  10383     22 Exit: ^1 [1]'],
+  ExpectedCall3Result = [type=query,bindings=json([]),output=' *  10380     22 Call: ^1 [1]\n *  10381     23 Call: ^1 []\n *  10381     23 Exit: ^1 []\n *  10380     22 Exit: ^1 [1]'],
   send_call_with_single_success_result(Call3Request, 12, Call3Result).
 :- endif.
 
@@ -1585,18 +1586,19 @@ expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "1" [label="member_s
 :- else.
 expected_prolog_message_subterm(print_sld_tree_no_single_goal, 0, 62, '! jupyter:print_sld_tree/1 needs to be the only goal in a term').
 expected_prolog_message_subterm(sld_tree_exception, 0, 82, '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  ').
-%                                                      '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  _702439 is a*a'
+%                                                          '! Type error in argument 2 of (is)/2\n! expected evaluable, but found a/0\n! goal:  _702439 is a*a'
 
 expected_output(sld_tree_exception, '1\n% The debugger is switched off').
 
 expected_print_sld_tree(sld_tree_with_variable_bindings, 'digraph {\n    "4" [label="pred(A,B)"]\n    "5" [label="g1(A,C)"]\n    "6" [label="g11(A,D)"]\n    "7" [label="g12(b,C)"]\n    "8" [label="g2(c,B)"]\n    "4" -> "5"\n    "5" -> "6"\n    "5" -> "7"\n    "4" -> "8"\n}').
-expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "6935" [label="print(test)"]\n    "6936" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6937" [label="app([3],[4],A)"]\n    "6938" [label="print(3)"]\n    "6939" [label="app([],[4],B)"]\n    "6940" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "6941" [label="print(1)"]\n    "6942" [label="app([2],[3,4],[2,3,4])"]\n    "6943" [label="print(2)"]\n    "6944" [label="app([],[3,4],[3,4])"]\n    "6945" [label="print(done)"]\n    "6936" -> "6937"\n    "6937" -> "6938"\n    "6937" -> "6939"\n    "6936" -> "6940"\n    "6940" -> "6941"\n    "6940" -> "6942"\n    "6942" -> "6943"\n    "6942" -> "6944"\n}').
-expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "12492" [label="print(failure_test)"]\n    "12493" [label="append([1],[2],[3])"]\n}').
-expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "16776" [label="member_square([1,a,3])"]\n    "16777" [label="member(A,[1,a,3])"]\n    "16778" [label="B is 1*1"]\n    "16779" [label="print(1)"]\n    "16780" [label="B is a*a"]\n    "16776" -> "16777"\n    "16776" -> "16778"\n    "16776" -> "16779"\n    "16776" -> "16780"\n}').
+expected_print_sld_tree(sld_tree_with_multiple_goals_and_output, 'digraph {\n    "4" [label="print(test)"]\n    "5" [label="app([1,2],[3],[4],[1,2,3,4])"]\n    "6" [label="app([3],[4],A)"]\n    "7" [label="print(3)"]\n    "8" [label="app([],[4],B)"]\n    "9" [label="app([1,2],[3,4],[1,2,3,4])"]\n    "10" [label="print(1)"]\n    "11" [label="app([2],[3,4],[2,3,4])"]\n    "12" [label="print(2)"]\n    "13" [label="app([],[3,4],[3,4])"]\n    "14" [label="print(done)"]\n    "5" -> "6"\n    "6" -> "7"\n    "6" -> "8"\n    "5" -> "9"\n    "9" -> "10"\n    "9" -> "11"\n    "11" -> "12"\n    "11" -> "13"\n}').
+expected_print_sld_tree(sld_tree_failure, 'digraph {\n    "4" [label="print(failure_test)"]\n    "5" [label="append([1],[2],[3])"]\n}').
+expected_print_sld_tree(sld_tree_exception, 'digraph {\n    "4" [label="member_square([1,a,3])"]\n    "5" [label="member(A,[1,a,3])"]\n    "6" [label="B is 1*1"]\n    "7" [label="print(1)"]\n    "8" [label="B is a*a"]\n    "4" -> "5"\n    "4" -> "6"\n    "4" -> "7"\n    "4" -> "8"\n}').
 :- endif.
 
 
-% For SICStus Prolog, these tests rely on exact invocation numbers, which is why they might fail when the source code is changed or when a single test is run instead of test unit.
+% For SICStus Prolog, some of the following tests rely on exact invocation numbers, which is why they might fail when the source code is changed.
+% For the same reason, the server is restarted before those tests.
 
 :- begin_tests(print_sld_tree, [setup((start_process)), cleanup(release_process(true))]).
 
@@ -1617,7 +1619,7 @@ test(sld_tree_with_variable_bindings, [true(Result = ExpectedResult)]) :-
   check_equality(SldData, ExpectedSldData),
   send_call_with_single_success_result(Request, 2, Result).
 
-test(sld_tree_with_multiple_goals_and_output, [true(Result = ExpectedResult)]) :-
+test(sld_tree_with_multiple_goals_and_output, [setup((release_process(true), start_process)), true(Result = ExpectedResult)]) :-
   % Define clauses
   DefinitionRequest = 'app([], Res, Res) :- !. app([Head|Tail], List, [Head|Res]) :-  print(Head),  app(Tail, List, Res). app(L1, L2, L3, Res) :-  app(L2, L3, R1),  app(L1, R1, Res).',
   ExpectedDefinitionResult = json(['1'=json([status=success,type=clause_definition,bindings=json([]),output='% Asserting clauses for user:app/3\n',retracted_clauses=json([])]),
@@ -1632,7 +1634,7 @@ test(sld_tree_with_multiple_goals_and_output, [true(Result = ExpectedResult)]) :
   check_equality(SldData, ExpectedSldData),
   send_call_with_single_success_result(Request, 4, Result).
 
-test(sld_tree_failure, [true(Result = ExpectedResult)]) :-
+test(sld_tree_failure, [setup((release_process(true), start_process)), true(Result = ExpectedResult)]) :-
   % When printing the SLD tree, everything computed before the failure is output
   Request = 'jupyter:print_sld_tree((print(failure_test), append([1], [2], [3]), print(not_reached))).',
   expected_print_sld_tree(sld_tree_failure, ExpectedSldData),
@@ -1640,7 +1642,7 @@ test(sld_tree_failure, [true(Result = ExpectedResult)]) :-
   check_equality(SldData, ExpectedSldData),
   send_call_with_single_error_result(Request, 5, Result).
 
-test(sld_tree_exception, [true(SldData = ExpectedSldData)]) :-
+test(sld_tree_exception, [setup((release_process(true), start_process)), true(SldData = ExpectedSldData)]) :-
   % Define a predicate
   DefinitionRequest = 'member_square(List) :- member(M, List), S is M*M, print(S), fail.',
   ExpectedDefinitionResult = [type=clause_definition,bindings=json([]),output='% Asserting clauses for user:member_square/1\n',retracted_clauses=json([])],

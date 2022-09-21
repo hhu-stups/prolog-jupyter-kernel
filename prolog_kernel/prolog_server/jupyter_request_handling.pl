@@ -2,11 +2,11 @@
 % This module provides predicates to start a loop reading and handling JSON RPC requests.
 
 % This is done by starting a loop which:
-% - Reads a message from the standard input stream with jsonrpc:next_jsonrpc_message/1.
+% - Reads a message from the standard input stream with jupyter_jsonrpc:next_jsonrpc_message/1.
 % - Checks if the message is a valid request with dispatch_message/3.
 % - Checks the method of the request with dispatch_request/4, handles it accordingly and sends a response to the client.
 %   There are four methods:
-%   - call: execute any terms (handled by the module term_handling)
+%   - call: execute any terms (handled by the module jupyter_term_handling)
 %   - version: retrieve the SICStus version
 %   - predicates: find built-in and exported predicates
 %   - jupyter_predicate_docs: retrieve the docs of the predicates in the module jupyter
@@ -14,11 +14,11 @@
 % In case of a call request, the request might contain multiple terms.
 % They are handled one by one and the remaining ones are asserted with request_data/2.
 % They need to be asserted so that "retry." terms can fail into the previous call.
-% If the term produces any result, it is asserted with term_handling:term_response/1.
+% If the term produces any result, it is asserted with jupyter_term_handling:term_response/1.
 % Once all terms of a request are handled, their results are sent to the client.
 
 
-:- module(request_handling,
+:- module(jupyter_request_handling,
     [loop/3]).  % loop(+ContIn, +Stack, -ContOut)
 
 
@@ -28,9 +28,9 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3]).
 :- use_module(jupyter_logging, [create_log_file/1, log/1, log/2]).
-:- use_module(jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
-:- use_module(term_handling, [handle_term/6, declaration_end/1, test_definition_end/1, pred_definition_specs/1, term_response/1]).
-:- use_module(output, [send_reply_on_error/0, retrieve_message/2]).
+:- use_module(jupyter_jsonrpc, [send_success_reply/2, send_error_reply/3, next_jsonrpc_message/1, parse_json_terms_request/3]).
+:- use_module(jupyter_term_handling, [handle_term/6, declaration_end/1, test_definition_end/1, pred_definition_specs/1, term_response/1]).
+:- use_module(jupyter_query_handling, [send_reply_on_error/0, retrieve_message/2]).
 :- use_module(jupyter, []).
 
 
@@ -61,18 +61,18 @@ user:portray_message(error, MessageTerm) :-
 % Handle an unexpected exception.
 % Send an error reply to let the client know that the server is in a state from which it cannot recover and therefore needs to be killed and restarted.
 handle_unexpected_exception(MessageTerm) :-
-  output:send_reply_on_error,
+  jupyter_query_handling:send_reply_on_error,
   jupyter_logging:log(MessageTerm),
   % Retract all data of the current request
   retract(request_data(_CallRequestId, _TermsAndVariables)),
   % Use catch/3, because no clauses might have been asserted
-  catch(retractall(term_handling:pred_definition_specs(_)), _, true),
+  catch(retractall(jupyter_term_handling:pred_definition_specs(_)), _, true),
   % Delete the test definition and declaration file
   test_definition_end(false),
   declaration_end(false),
   % Send an error response
-  output:retrieve_message(message_data(error, MessageTerm), ExceptionMessage),
-  jsonrpc:send_error_reply(@(null), unhandled_exception, ExceptionMessage),
+  jupyter_query_handling:retrieve_message(message_data(error, MessageTerm), ExceptionMessage),
+  jupyter_jsonrpc:send_error_reply(@(null), unhandled_exception, ExceptionMessage),
   fail.
 
 
@@ -107,19 +107,19 @@ handle_next_term_or_request(Stack, Cont) :-
   % Continue processing terms of the current request
   retract(request_data(CallRequestId, TermsAndVariables)),
   assert(request_data(CallRequestId, RemainingTermsAndVariables)),
-  term_handling:handle_term(Term, false, CallRequestId, Stack, Variables, Cont).
+  jupyter_term_handling:handle_term(Term, false, CallRequestId, Stack, Variables, Cont).
 handle_next_term_or_request(Stack, Cont) :-
   % All terms of the current request have been processed -> send their results to the client
   request_data(_CallRequestId, []),
   !,
   send_responses,
   % Read the next request
-  jsonrpc:next_jsonrpc_message(Message),
+  jupyter_jsonrpc:next_jsonrpc_message(Message),
   dispatch_message(Message, Stack, Cont).
 handle_next_term_or_request(Stack, Cont) :-
   % First request
   % Read and handle the next request from the client
-  jsonrpc:next_jsonrpc_message(Message),
+  jupyter_jsonrpc:next_jsonrpc_message(Message),
   dispatch_message(Message, Stack, Cont).
 
 
@@ -131,7 +131,7 @@ send_responses :-
   % Retract all data of the current request
   retract(request_data(CallRequestId, _)),
   % Use catch/3, because no clauses might have been asserted
-  catch(retractall(term_handling:pred_definition_specs(_)), _, true),
+  catch(retractall(jupyter_term_handling:pred_definition_specs(_)), _, true),
   % If any tests were defined or declarations were made by the current request, load the corresponding file(s)
   test_definition_end(true),
   declaration_end(true),
@@ -167,7 +167,7 @@ dispatch_message(Message, Stack, Cont) :-
   dispatch_request(Method, Message, Stack, Cont).
 dispatch_message(invalid(_RPC), _Stack, continue) :-
   % Malformed -> the Id must be null
-  jsonrpc:send_error_reply(@(null), invalid_request, '').
+  jupyter_jsonrpc:send_error_reply(@(null), invalid_request, '').
 
 
 % dispatch_request(+Method, +Message, +Stack, -Cont)
@@ -176,7 +176,7 @@ dispatch_message(invalid(_RPC), _Stack, continue) :-
 dispatch_request(call, Message, Stack, Cont) :-
   !,
   Message = request(_Method,CallRequestId,Params,_RPC),
-  jsonrpc:parse_json_terms_request(Params, TermsAndVariables, ParsingErrorMessageData),
+  jupyter_jsonrpc:parse_json_terms_request(Params, TermsAndVariables, ParsingErrorMessageData),
   ( var(TermsAndVariables) ->
     !,
     % An error occurred when parsing the json request
@@ -185,34 +185,34 @@ dispatch_request(call, Message, Stack, Cont) :-
   ; TermsAndVariables = [] ->
     !,
     % The request does not contain any term
-    jsonrpc:send_success_reply(CallRequestId, ''),
+    jupyter_jsonrpc:send_success_reply(CallRequestId, ''),
     Cont = continue
   ; TermsAndVariables = [Term-Variables] ->
     !,
     % The request contains one term
     % Normally this is a goal which is to be evaluated
     assert(request_data(CallRequestId, [])),
-    term_handling:handle_term(Term, true, CallRequestId, Stack, Variables, Cont)
+    jupyter_term_handling:handle_term(Term, true, CallRequestId, Stack, Variables, Cont)
   ; otherwise ->
     % The request contains multiple terms
     % Process the first term and assert the remaining ones
     % This is needed so that "retry." terms can fail into the previous call
     TermsAndVariables = [Term-Variables|RemainingTermsAndVariables],
     assert(request_data(CallRequestId, RemainingTermsAndVariables)),
-    term_handling:handle_term(Term, false, CallRequestId, Stack, Variables, Cont)
+    jupyter_term_handling:handle_term(Term, false, CallRequestId, Stack, Variables, Cont)
   ).
 dispatch_request(dialect, Message, _Stack, continue) :-
   !,
   % Send the SICStus version to the client
   Message = request(_Method,CallRequestId,_Params,_RPC),
   current_prolog_flag(dialect, Dialect),
-  jsonrpc:send_success_reply(CallRequestId, Dialect).
+  jupyter_jsonrpc:send_success_reply(CallRequestId, Dialect).
 dispatch_request(enable_logging, Message, _Stack, continue) :-
   !,
   % Send the SICStus version to the client
   Message = request(_Method,CallRequestId,_Params,_RPC),
   jupyter_logging:create_log_file(IsSuccess),
-  jsonrpc:send_success_reply(CallRequestId, IsSuccess).
+  jupyter_jsonrpc:send_success_reply(CallRequestId, IsSuccess).
 :- if(sicstus).
 dispatch_request(version, Message, _Stack, continue) :-
   !,
@@ -221,19 +221,19 @@ dispatch_request(version, Message, _Stack, continue) :-
   prolog_flag(version_data, sicstus(Major,Minor,Revision,_Beta,_Extra)),
   format_to_codes('~d.~d.~d', [Major, Minor, Revision], VersionCodes),
   atom_codes(VersionAtom, VersionCodes),
-  jsonrpc:send_success_reply(CallRequestId, VersionAtom).
+  jupyter_jsonrpc:send_success_reply(CallRequestId, VersionAtom).
 :- endif.
 dispatch_request(jupyter_predicate_docs, Message, _Stack, continue) :-
   % Retrieve the docs of the predicates in the module jupyter and send them to the client
   Message = request(_Method,CallRequestId,_Params,_RPC),
   !,
   jupyter:predicate_docs(PredDocs),
-  jsonrpc:send_success_reply(CallRequestId, json(PredDocs)).
+  jupyter_jsonrpc:send_success_reply(CallRequestId, json(PredDocs)).
 dispatch_request(Method, Message, _Stack, continue) :-
   % Make sure that a 'retry' call can fail
   Method \= call,
   Message = request(_,Id,_Params,_RPC), !,
-  jsonrpc:send_error_reply(Id, method_not_found, '').
+  jupyter_jsonrpc:send_error_reply(Id, method_not_found, '').
 
 
 % handle_parsing_error(+ParsingErrorMessageData, +CallRequestId)
@@ -242,7 +242,7 @@ handle_parsing_error(ParsingErrorMessageData, CallRequestId) :-
   !,
   % Parsing error when reading the terms from the request
   retrieve_message(ParsingErrorMessageData, ErrorMessage),
-  jsonrpc:send_error_reply(CallRequestId, exception, ErrorMessage).
+  jupyter_jsonrpc:send_error_reply(CallRequestId, exception, ErrorMessage).
 handle_parsing_error(_ParsingErrorMessageData, CallRequestId) :-
   % Malformed request
-  jsonrpc:send_error_reply(CallRequestId, invalid_params, '').
+  jupyter_jsonrpc:send_error_reply(CallRequestId, invalid_params, '').
