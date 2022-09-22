@@ -3,7 +3,7 @@
 
 A [Jupyter](https://jupyter.org/) kernel for Prolog based on the [IPython kernel](https://github.com/ipython/ipykernel).
 
-By default, [SICStus Prolog](https://sicstus.sics.se/) and [SWI-Prolog](https://www.swi-prolog.org/) (which is the actual **default**) are supported. The kernel is implemented in a way that basically all functionality except the loading of configuration files can easily be overriden. This is especially useful for extending the kernel for further Prolog implementations or running code with a different version of an implementation. For further information about this, see [Configuration](#configuration).
+By default, [SICStus Prolog](https://sicstus.sics.se/) and [SWI-Prolog](https://www.swi-prolog.org/) (which is the actual **default**) are supported. The kernel is implemented in a way that basically all functionality except the loading of configuration files can easily be overridden. This is especially useful for **extending the kernel for further Prolog implementations** or running code with a different version of an implementation. For further information about this, see [Configuration](#configuration).
 
 Also see the [JupyterLab Prolog CodeMirror Extension](https://github.com/anbre/jupyterlab-prolog-codemirror-extension) for **syntax highlighting** of Prolog code in JupyterLab.
 
@@ -20,7 +20,9 @@ For instance, the notebooks in [notebooks/feature_introduction](./notebooks/feat
 
 These notebooks serve as an **introduction to the features** of the kernel for SWI and SICStus Prolog. They also point out some peculiarities of the implementations.
 
-The notebook in [notebooks/slides](./notebooks/slides) provide an example of how a **slideshow** can be created with Jupyter while also giving a rough overview of the kernel's features and its implementation.
+The notebook in [notebooks/slides](./notebooks/slides) was created for a **slideshow** giving a rough overview of the kernel's features and its implementation.
+
+The directory [notebooks/nbgrader_example](./notebooks/nbgrader_example) provides an example of a **course directory** for the [nbgrader extension](https://nbgrader.readthedocs.io/en/stable/).
 
 Additionally, the file [jupyter_server_tests.pl](./prolog_server/jupyter_server_tests.pl) defines some **PL-Unit tests**. They provide further examples of what kind of code the Prolog server (and therefore the kernel) can handle and what the expected behavior is.
 
@@ -139,7 +141,7 @@ For further information, see the [Packaging Python Projects Tutorial](https://pa
 
 ### Debugging
 
-Usually, if the execution of a goal causes an exception, the corresponding Prolog error message is computed and displayed in the frontend. However, in case something goes wrong unexpectedly, the **Prolog server might not be able to send a response to the client**. In that case, the user can only see that the execution does not terminate without any information about the error or output that might have been produced. However, it is possible to write logging messages and access any potential output, which might facilitate finding the cause of the error.
+Usually, if the execution of a goal causes an exception, the corresponding Prolog error message is computed and displayed in the frontend. However, in case something goes wrong unexpectedly or the query does not terminate, the **Prolog server might not be able to send a response to the client**. In that case, the user can only see that the execution does not terminate without any information about the error or output that might have been produced. However, it is possible to write logging messages and access any potential output, which might facilitate finding the cause of the error.
 
 Debugging the server code is not possible in the usual way by tracing invocations. Furthermore, all messages exchanged with the client are written to the standard streams. Therefore, printing helpful debugging messages does not work either. Instead, if `server_logging` is configured, **messages can be written to a log file** by calling `log/1` or `log/2` from the module `jupyter_logging`. By default, only the responses sent to the client are logged.
 

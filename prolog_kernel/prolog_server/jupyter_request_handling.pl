@@ -209,7 +209,7 @@ dispatch_request(dialect, Message, _Stack, continue) :-
   jupyter_jsonrpc:send_success_reply(CallRequestId, Dialect).
 dispatch_request(enable_logging, Message, _Stack, continue) :-
   !,
-  % Send the SICStus version to the client
+  % Create a log file
   Message = request(_Method,CallRequestId,_Params,_RPC),
   jupyter_logging:create_log_file(IsSuccess),
   jupyter_jsonrpc:send_success_reply(CallRequestId, IsSuccess).
