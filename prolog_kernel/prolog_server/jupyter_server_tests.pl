@@ -892,8 +892,8 @@ test(load_test_definition_file, [true(DefinitionResult = ExpectedDefinitionResul
 :- if(swi).
 test(multiple_units, [true(RunTestsResult = ExpectedRunTestsResult)]) :-
   DefinitionRequest = ':- begin_tests(list1, [condition(true)]). test(list) :- lists:is_list([]). :- end_tests(list1). :- begin_tests(list2). test(list_fail, [fail]) :- lists:is_list(1). :- end_tests(list2).',
-  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list1']),
-                                   '2'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list2'])]),
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='% Defined test unit list1']),
+                                   '2'=json([status=success,type=directive,bindings=json([]),output='% Defined test unit list2'])]),
   send_success_call(DefinitionRequest, 6, DefinitionResult),
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Run the tests
@@ -965,13 +965,13 @@ test(predicate_redefinition_inside_unit_test, [true(RunTestsResult = ExpectedRun
 :- if(swi).
 test(same_unit_in_multiple_requests, [true(DefinitionResult2 = ExpectedDefinitionResult2)]) :-
   DefinitionRequest = ':- begin_tests(list, [condition(true)]). test(list) :- lists:is_list([]). :- end_tests(list). ?- run_tests.',
-  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list']),
+  ExpectedDefinitionResult = json(['1'=json([status=success,type=directive,bindings=json([]),output='% Defined test unit list']),
                                    '2'=json([status=success,type=query,bindings=json([]),output=_Output])]),
   send_success_call(DefinitionRequest, 16, DefinitionResult),
   check_equality(DefinitionResult, ExpectedDefinitionResult),
   % Define the same unit again in a different request
   DefinitionRequest2 = ':- begin_tests(list, [condition(true)]). test(list_fail, [fail]) :- lists:is_list(1). :- end_tests(list). ?- run_tests.',
-  ExpectedDefinitionResult2 = json(['1'=json([status=success,type=directive,bindings=json([]),output='\n% Defined test unit list']),
+  ExpectedDefinitionResult2 = json(['1'=json([status=success,type=directive,bindings=json([]),output='% Defined test unit list']),
                                    '2'=json([status=success,type=query,bindings=json([]),output=_Output2])]),
   send_success_call(DefinitionRequest2, 17, DefinitionResult2).
 :- endif.

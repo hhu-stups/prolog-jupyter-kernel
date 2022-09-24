@@ -66,7 +66,7 @@ class PrologKernel(Kernel):
 
     # Define default configuration options
 
-    # If set to True, the logging level is set to DEBUG by the kernel so that debugging messages are logged.
+    # If set to True, the logging level is set to DEBUG by the kernel so that Python debugging messages are logged.
     jupyter_logging = Bool(False).tag(config=True)
 
     # If set to True, a log file is created by the Prolog server.

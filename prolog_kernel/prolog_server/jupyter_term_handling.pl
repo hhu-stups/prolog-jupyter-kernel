@@ -994,7 +994,7 @@ test_definition_end(LoadFile) :-
     ( nonvar(Unit) ->
       % In case of SWI-Prolog, the Unit is bound
       % Since each Unit is written to and loaded from a separate file, a message should be output for each file
-      format_to_codes('\n% Defined test unit ~w', [Unit], LoadMessageCodes),
+      format_to_codes('% Defined test unit ~w', [Unit], LoadMessageCodes),
       atom_codes(LoadMessage, LoadMessageCodes),
       atom_concat(Output, LoadMessage, OutputWithLoadMessage)
     ; atom_concat(Output, '\n% Loaded the test file', OutputWithLoadMessage)
@@ -1069,10 +1069,14 @@ json_parsable_results([Result|Results], [_VarName|VarNames], Bindings, [ResultAt
 
 % Print SLD Trees
 
-% Create content for a file representing the SLD tree of an execution that can be rendered with DOT.
+% Create content for a file representing a graph resembling the SLD tree of an execution that can be rendered with DOT.
 % The collection of the data needs to be handled differntly for SWI- and SICStus Prolog:
 % - SICStus: a breakpoint which is removed after the execution.
 % - SWI: user:prolog_trace_interception/4 is used that calls assert_sld_data/4 which succeeds if SLD data is to be collected (if a clause collect_sld_data/0 exists).
+
+% So far, data is collected for call ports only and no leaves are shown marking a successful or failing branch.
+% In order to add such leaves, data needs to be collected for other ports as well.
+% Then, to add a failure/success leaf, the first fail/exit port for a call needs to be determined.
 
 % The graph file content is created like the following.
 % Nodes are defined by their ID and labelled with the goal.

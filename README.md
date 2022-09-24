@@ -1,5 +1,5 @@
 
-# Prolog Jupyter Kernel
+# Herculog - A Jupyter Kernel for Prolog
 
 A [Jupyter](https://jupyter.org/) kernel for Prolog based on the [IPython kernel](https://github.com/ipython/ipykernel).
 
@@ -50,8 +50,7 @@ The installation was tested with Ubuntu 20.04 and Windows 10.
 ### Install
 
 The kernel is provided as a Python package on the [Python Package Index](https://pypi.org/) and can be installed with `pip`:
-1. Download the kernel:
-  `python -m pip install prolog_kernel`
+1. Download the kernel:<br/> `python -m pip install prolog_kernel`
 2. Install the kernel specification directory:
     - `python -m prolog_kernel.install`
     - There are the following options which can be seen when running `python -m prolog_kernel.install --help`
@@ -127,21 +126,18 @@ If no such path is defined, the path itself or the defined class is invalid, a *
 
 ### Upload to PyPI
 
-This kernel is available as a Python package on the [Python Package Index](https://pypi.org/). A new version of the package can be published in the following way:
-1. Install the requirements build and twine:
-  `pip install build twine`
+This kernel is available as a Python package on the [Python Package Index](https://pypi.org/project/prolog-kernel/). A new version of the package can be published in the following way:
+1. Install the requirements build and twine: <br/> `pip install build twine`
 2. Increase the version in [pyproject.toml](./pyproject.toml)
-3. Create the distribution files:
-  `python -m build`
-4. Upload the package to PyPI:
-  `twine upload dist/*`
+3. Create the distribution files: <br/> `python -m build`
+4. Upload the package to PyPI: <br/> `twine upload dist/*`
 
 For further information, see the [Packaging Python Projects Tutorial](https://packaging.python.org/en/latest/tutorials/packaging-projects/).
 
 
 ### Debugging
 
-Usually, if the execution of a goal causes an exception, the corresponding Prolog error message is computed and displayed in the frontend. However, in case something goes wrong unexpectedly or the query does not terminate, the **Prolog server might not be able to send a response to the client**. In that case, the user can only see that the execution does not terminate without any information about the error or output that might have been produced. However, it is possible to write logging messages and access any potential output, which might facilitate finding the cause of the error.
+Usually, if the execution of a goal causes an exception, the corresponding Prolog error message is computed and displayed in the Jupyter frontend. However, in case something goes wrong unexpectedly or the query does not terminate, the **Prolog server might not be able to send a response to the client**. In that case, the user can only see that the execution does not terminate without any information about the error or output that might have been produced. However, it is possible to write logging messages and access any potential output, which might facilitate finding the cause of the error.
 
 Debugging the server code is not possible in the usual way by tracing invocations. Furthermore, all messages exchanged with the client are written to the standard streams. Therefore, printing helpful debugging messages does not work either. Instead, if `server_logging` is configured, **messages can be written to a log file** by calling `log/1` or `log/2` from the module `jupyter_logging`. By default, only the responses sent to the client are logged.
 

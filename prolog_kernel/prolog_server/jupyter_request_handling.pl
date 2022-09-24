@@ -5,11 +5,12 @@
 % - Reads a message from the standard input stream with jupyter_jsonrpc:next_jsonrpc_message/1.
 % - Checks if the message is a valid request with dispatch_message/3.
 % - Checks the method of the request with dispatch_request/4, handles it accordingly and sends a response to the client.
-%   There are four methods:
+%   There are five methods:
 %   - call: execute any terms (handled by the module jupyter_term_handling)
 %   - version: retrieve the SICStus version
 %   - predicates: find built-in and exported predicates
 %   - jupyter_predicate_docs: retrieve the docs of the predicates in the module jupyter
+%   - enable_logging: create a log file to which log messages can be written
 
 % In case of a call request, the request might contain multiple terms.
 % They are handled one by one and the remaining ones are asserted with request_data/2.

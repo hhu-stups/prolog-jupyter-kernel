@@ -159,7 +159,7 @@ predicate_doc('jupyter:print_queries/1', Doc) :-
 predicate_doc('jupyter:print_sld_tree/1', Doc) :-
   atom_concat([
     'jupyter:print_sld_tree(+Goal)',
-    '\n\n    Executes the goal Goal and prints its SLD tree.',
+    '\n\n    Executes the goal Goal and prints a graph resembling its SLD tree.',
     '\n\n    Needs to be the only goal of a query.'
   ], Doc).
 predicate_doc('jupyter:print_stack/0', Doc) :-
