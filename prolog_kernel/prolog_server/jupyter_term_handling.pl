@@ -532,8 +532,15 @@ handle_query_term_(jupyter:print_table(Goal), _IsDirective, _CallRequestId, _Sta
   handle_print_table_with_findall(Bindings, Goal).
 handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table(Bindings, ValuesLists, VariableNames).
-handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex),
+                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
+handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex),
+                  _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_print_transition_graph(PredSpec, FromIndex, ToIndex, 0).
+handle_query_term_(jupyter:print_transition_graph(PredSpec),
+                  _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_print_transition_graph(PredSpec).
 handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
 handle_query_term_(jupyter:update_completion_data, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
@@ -1398,10 +1405,24 @@ handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex) :-
 handle_print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex).
   % If some requirements are not fulfilled, the first clause asserts an error response and fails
 
+% provide a default version of the command which automatically sets from,to and label index.
+% e.g. we can call jupyter:print_transition_graph(edge/2).
+handle_print_transition_graph(PredSpec) :-
+  module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity),
+  FromIndex=1, ToIndex=PredArity,
+  (PredArity =< 2 -> LabelIndex=0
+   ; LabelIndex=2),
+  handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
 
 % module_name_expanded_pred_spec(+PredSpec, -MPredSpec)
 module_name_expanded_pred_spec(Module:PredName/PredArity, Module:PredName/PredArity) :- !.
 module_name_expanded_pred_spec(PredName/PredArity, user:PredName/PredArity) :- !.
+module_name_expanded_pred_spec(Module:PredName, Module:PredName/PredArity) :-
+   current_predicate(Module:PredName/Arity),!,
+   PredArity=Arity.
+module_name_expanded_pred_spec(PredName, user:PredName/PredArity) :-
+   current_predicate(user:PredName/Arity),!,
+   PredArity=Arity.
 module_name_expanded_pred_spec(PredSpec, _) :-
   assert_error_response(exception, message_data(error, jupyter(print_transition_graph_pred_spec(PredSpec))), '', []),
   fail.
@@ -1410,9 +1431,9 @@ module_name_expanded_pred_spec(PredSpec, _) :-
 % check_indices(+PredArity, +FromIndex, +ToIndex, +LabelIndex)
 check_indices(PredArity, FromIndex, ToIndex, LabelIndex) :-
   % All indices need to be less or equal to the predicate arity
-  FromIndex =< PredArity,
-  ToIndex =< PredArity,
-  LabelIndex =< PredArity,
+  integer(FromIndex), FromIndex =< PredArity,
+  integer(ToIndex), ToIndex =< PredArity,
+  (atom(LabelIndex) -> true ; integer(LabelIndex), LabelIndex >= 0, LabelIndex =< PredArity),
   !.
 check_indices(PredArity, _FromIndex, _ToIndex, _LabelIndex) :-
   assert_error_response(exception, message_data(error, jupyter(print_transition_graph_indices(PredArity))), '', []),
@@ -1438,11 +1459,15 @@ transition_graph_edge_atoms([Result|Results], FromIndex, ToIndex, 0, [EdgeAtom|E
 transition_graph_edge_atoms([Result|Results], FromIndex, ToIndex, LabelIndex, [EdgeAtom|EdgeAtoms]) :-
   nth1(FromIndex, Result, From),
   nth1(ToIndex, Result, To),
-  nth1(LabelIndex, Result, Label),
+  get_label(LabelIndex, Result, Label),
+  %TODO: we should probably escape the labels, ...
   format_to_codes('    \"~w\" -> \"~w\" [label=\"~w\"]~n', [From, To, Label], EdgeCodes),
   atom_codes(EdgeAtom, EdgeCodes),
   transition_graph_edge_atoms(Results, FromIndex, ToIndex, LabelIndex, EdgeAtoms).
-
+  
+get_label(LabelIndex,_,Label) :- atom(LabelIndex),!, % allows one to use an atom as label index
+  Label=LabelIndex.
+get_label(LabelIndex,Result,Label) :- nth1(LabelIndex, Result, Label).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
