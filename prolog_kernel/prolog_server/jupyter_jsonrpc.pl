@@ -265,7 +265,7 @@ terms_from_atom(TermsAtom, TermsAndVariables, ParsingErrorMessageData) :-
   ( nonvar(ParsingErrorMessageData)
   -> % No valid Prolog syntax
     % The error might have been caused by a missing terminating full-stop
-    ( append(_, [46], GoalCodes)
+    ( append(_, [46], GoalCodes) % NOTE: the dot could be on a comment line.
     ; % If the last code of the GoalCodes list does not represent a full-stop, add one and try reading the term(s) again
       append(GoalCodes, [10, 46], GoalCodesWithFullStop), % The last line might be a comment -> add a new line code as well
       terms_from_codes(GoalCodesWithFullStop, TermsAndVariables, _NewParsingErrorMessageData)
