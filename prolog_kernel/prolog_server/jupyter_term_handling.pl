@@ -52,6 +52,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jupyter_jsonrpc, [send_error_reply/3]).
 :- use_module(jupyter_request_handling, [loop/3]).
+:- use_module(jupyter_preferences, [set_preference/3, get_preference/2, get_preferences/1]).
 
 :- if(sicstus).
 :- use_module(library(aggregate), [forall/2]).
@@ -439,9 +440,12 @@ retract_previous_clauses(PredSpec, PredDefinitionSpecs, [PredSpec|PredDefinition
 
 % compute_assert_message(+MPredSpec, -AssertMessage)
 compute_assert_message(PredSpec, AssertMessage) :-
-  format_to_codes('% Asserting clauses for ~w~n', [PredSpec], AssertCodes),
-  atom_codes(AssertMessage, AssertCodes).
+  format_to_atom('% Asserting clauses for ~w~n', [PredSpec], AssertMessage).
 
+format_to_atom(_,_,Atom) :-  get_preference(verbosity,L), L<1,!, Atom=''.
+format_to_atom(Msg,Args,Atom) :- 
+  format_to_codes(Msg, Args, Codes),
+  atom_codes(Atom, Codes).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -543,8 +547,12 @@ handle_query_term_(jupyter:print_transition_graph(PredSpec),
   handle_print_transition_graph(PredSpec).
 handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
-handle_query_term_(jupyter:update_completion_data, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:update_completion_data, 
+                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_update_completion_data.
+handle_query_term_(jupyter:set_preference(Pref,Value), 
+                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+  handle_set_preference(Pref,Value).
 % run_tests
 handle_query_term_(run_tests, _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests, CallRequestId, Stack, Bindings, Cont).
@@ -678,8 +686,7 @@ retry_message_and_output(GoalAtom, Output, RetryMessageAndOutput) :-
 % This message contains the goal which was retried.
 retry_message(true, GoalAtom, RetryMessage) :-
   !,
-  format_to_codes('% Retrying goal: ~w~n', [GoalAtom], RetryMessageCodes),
-  atom_codes(RetryMessage, RetryMessageCodes).
+  format_to_atom('% Retrying goal: ~w~n', [GoalAtom], RetryMessage).
 retry_message(_IsRetry, _GoalAtom, '').
 
 
@@ -1522,6 +1529,18 @@ handle_set_prolog_impl(PrologImplementationID) :-
   assert_success_response(query, [], '', [set_prolog_impl_id=PrologImplementationID]).
 handle_set_prolog_impl(_PrologImplementationID) :-
   assert_error_response(exception, message_data(error, jupyter(prolog_impl_id_no_atom)), '', []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Change a Jupyter Prolog preference
+
+handle_set_preference(Pref,Value) :-
+  set_preference(Pref,Old,Value),
+  !,
+  format_to_atom('% Changing preference ~w from ~w to ~w~n', [Pref,Old,Value], Msg),
+  assert_success_response(query, [], Msg, []).
+handle_set_preference(Pref,Value) :- 
+  assert_error_response(exception, message_data(error, jupyter(set_preference(Pref,Value))), '', []).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
