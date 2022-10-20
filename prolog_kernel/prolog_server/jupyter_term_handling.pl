@@ -1408,7 +1408,7 @@ handle_print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex).
 % provide a default version of the command which automatically sets from,to and label index.
 % e.g. we can call jupyter:print_transition_graph(edge/2).
 handle_print_transition_graph(PredSpec) :-
-  module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity),
+  module_name_expanded_pred_spec(PredSpec, _Module:_PredName/PredArity),
   FromIndex=1, ToIndex=PredArity,
   (PredArity =< 2 -> LabelIndex=0
    ; LabelIndex=2),
@@ -1448,26 +1448,64 @@ check_indices(PredArity, _FromIndex, _ToIndex, _LabelIndex) :-
 % If LabelIndex=0, EdgeAtoms contains atoms of the following form: '    "From" -> "To"~n'
 % Otherwise, the atoms are of the following form:                  '    "From" -> "To" [label="Label"]~n'
 transition_graph_edge_atoms([], _FromIndex, _ToIndex, _LabelIndex, []) :- !.
-transition_graph_edge_atoms([Result|Results], FromIndex, ToIndex, 0, [EdgeAtom|EdgeAtoms]) :-
-  % Without a label
-  !,
-  nth1(FromIndex, Result, From),
-  nth1(ToIndex, Result, To),
-  format_to_codes('    \"~w\" -> \"~w\"~n', [From, To], EdgeCodes),
-  atom_codes(EdgeAtom, EdgeCodes),
-  transition_graph_edge_atoms(Results, FromIndex, ToIndex, 0, EdgeAtoms).
 transition_graph_edge_atoms([Result|Results], FromIndex, ToIndex, LabelIndex, [EdgeAtom|EdgeAtoms]) :-
   nth1(FromIndex, Result, From),
   nth1(ToIndex, Result, To),
-  get_label(LabelIndex, Result, Label),
+  (get_label(LabelIndex, Result, Label) ->
+      (get_line_colour_style(LabelIndex, Result, Color,Style)
+       -> format_to_codes('    \"~w\" -> \"~w\" [label=\"~w\", color=\"~w\", style=\"~w\"]~n',
+                          [From, To, Label, Color, Style], EdgeCodes)
+        ; format_to_codes('    \"~w\" -> \"~w\" [label=\"~w\"]~n', [From, To, Label], EdgeCodes)
+      )
+   ;  %Label=0 -> do not show any label
+      format_to_codes('    \"~w\" -> \"~w\"~n', [From, To], EdgeCodes)
+  ),
   %TODO: we should probably escape the labels, ...
-  format_to_codes('    \"~w\" -> \"~w\" [label=\"~w\"]~n', [From, To, Label], EdgeCodes),
   atom_codes(EdgeAtom, EdgeCodes),
   transition_graph_edge_atoms(Results, FromIndex, ToIndex, LabelIndex, EdgeAtoms).
-  
+
+% we also accept graph definitions of the following form, where LabelIndex=2
+% edg(a,[label/i, color/red, style/dotted],b).
+% edg(b,[label/j, color/chartreuse, style/solid], c).
+get_label(0,_,_) :- !, fail.
 get_label(LabelIndex,_,Label) :- atom(LabelIndex),!, % allows one to use an atom as label index
   Label=LabelIndex.
-get_label(LabelIndex,Result,Label) :- nth1(LabelIndex, Result, Label).
+get_label(List,_,Label) :- List=[_|_], !, get_line_label(List,Label).
+get_label(LabelIndex,Result,Label) :-
+   nth1(LabelIndex, Result, ArgVal),
+   (get_line_label(ArgVal,ListLabel) -> Label=ListLabel ; Label=ArgVal).
+
+get_line_label(List,Label) :- bind_member(label,Label,List).
+
+get_line_colour_style(List,_,Col,Style) :- List=[_|_], !, % style list provided directly in jupyter call
+   get_line_colour(List,Col),
+   get_line_style(List,Style).
+get_line_colour_style(LabelIndex,Result,Col,Style) :- integer(LabelIndex),
+   nth1(LabelIndex, Result, List), % the LabelIndex argument is a list containing dot/graphviz infos
+   get_line_colour(List,Col),
+   get_line_style(List,Style).
+
+get_line_colour(List,Col) :- bind_member(colour,C,List),!,Col=C.
+get_line_colour(List,Col) :- bind_member(color,C,List),!,Col=C.
+get_line_colour(_,'black'). % default
+
+get_line_style(List,Style) :- bind_member(style,C,List),valid_dot_line_style(C), !,Style=C.
+get_line_style(_,'solid'). % default
+
+valid_dot_line_style(bold).
+valid_dot_line_style(dashed).
+valid_dot_line_style(dotted).
+valid_dot_line_style(invis).
+valid_dot_line_style(solid).
+
+%get_shape(List,Style) :- bind_member(Style,C,List),!,Style=C.
+%get_shape(_,'none').
+
+bind_member(Label,Value,List) :- member(Binding,List), binding(Binding,Label,Value).
+% we accept various ways to specify bindings:
+binding('='(Label,Value),Label,Value).
+binding('/'(Label,Value),Label,Value).
+binding('-'(Label,Value),Label,Value).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
