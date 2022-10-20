@@ -124,6 +124,13 @@ If no such path is defined, the path itself or the defined class is invalid, a *
     - For available installation options, see [Install](#install)
 
 
+### Local Changes
+
+In general, in order for local code adjustments to take effect, the kernel needs to be reinstalled. When installing the local project in *editable* mode with `pip install -e .` (e.g. by running `make`), restarting the kernel suffices.
+
+Adjustments of the Prolog server code are loaded when the server is restarted. Thus, when changing Prolog code only, instead of restarting the whole kernel, it can be interrupted, which causes the Prolog server to be restarted.
+
+
 ### Upload to PyPI
 
 This kernel is available as a Python package on the [Python Package Index](https://pypi.org/project/prolog-kernel/). A new version of the package can be published in the following way:
