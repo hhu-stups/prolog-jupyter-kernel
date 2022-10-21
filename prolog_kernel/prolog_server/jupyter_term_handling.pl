@@ -21,7 +21,8 @@
 %   - a call of a special jupyter predicate:
 %     - jupyter:print_table/1 or jupyter:print_table/2
 %     - jupyter:print_sld_tree/1
-%     - jupyter:print_transition_graph/4
+%     - jupyter:print_transition_graph/1,3,4
+%     - jupyter:show_graph/2  % alternative name for print_transition_graph with Node and Edge predicate
 %     - jupyter:set_prolog_impl/1
 %     - jupyter:update_completion_data/0
 %     - jupyter:print_stack/0
@@ -538,13 +539,13 @@ handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective
   handle_print_table(Bindings, ValuesLists, VariableNames).
 handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex),
                    _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
+  handle_print_transition_graph(true,PredSpec, FromIndex, ToIndex, LabelIndex).
 handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex),
                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_print_transition_graph(PredSpec, FromIndex, ToIndex, 0).
-handle_query_term_(jupyter:print_transition_graph(PredSpec),
+  handle_print_transition_graph(true,PredSpec, FromIndex, ToIndex, 0).
+handle_query_term_(jupyter:show_graph(NodeSpec,PredSpec),
                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_print_transition_graph(PredSpec).
+  handle_print_transition_graph(NodeSpec,PredSpec).
 handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
 handle_query_term_(jupyter:update_completion_data, 
@@ -1387,39 +1388,70 @@ atom_concat_([Atom|Atoms], AtomSoFar, ResultAtom) :-
 % - '    "From" -> "To"~n'
 
 
-% handle_print_transition_graph(+PredSpec, +FromIndex, +ToIndex, +LabelIndex)
+% handle_print_transition_graph(+NodePredSpec, +EdgePredSpec, +FromIndex, +ToIndex, +LabelIndex)
 %
-% PredSpec needs to be a predicate specification of the form Module:PredName/PredArity or PredName/PredArity.
+% NodePredSpec needs to be a predicate spec of the form true or Module:PredName/PredArity or PredName/PredArity.
+% The first argument is the internal name of the node, passed on to EdgePredSpec, the second arg can be a dot attribute list
+% EdgePredSpec needs to be a predicate specification of the form Module:PredName/PredArity or PredName/PredArity.
 % FromIndex, ToIndex, and LabelIndex need to be less or equal to PredArity.
 % FromIndex and ToIndex point to predicate arguments used as nodes.
 % LabelIndex points to the argument providing a label for an edge.
 % If LabelIndex=0, the edges are not labelled.
-handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex) :-
+handle_print_transition_graph(NodePredSpec, EdgePredSpec, FromIndex, ToIndex, LabelIndex) :-
   % Check that the predicate specification and indices are correct
-  module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity),
+  module_name_expanded_pred_spec(EdgePredSpec, Module:PredName/PredArity),
   check_indices(PredArity, FromIndex, ToIndex, LabelIndex),
   !,
   length(ArgList, PredArity),
   PredTerm =.. [PredName|ArgList],
+  % compute all possible nodes
+  (NodePredSpec=true
+    -> EdgeCall = Module:PredTerm
+    ;  findall(NodeName,get_transition_graph_node_atom(NodePredSpec,NodeName,_),Nodes),
+       findall(NodeDotDesc,get_transition_graph_node_atom(NodePredSpec,_,NodeDotDesc),NodeDescAtoms),
+       nth1(FromIndex, ArgList, FromNode),
+       nth1(ToIndex, ArgList, ToNode),
+       EdgeCall = (member(FromNode,Nodes),Module:PredTerm,member(ToNode,Nodes)) 
+       % only take nodes into account which are declared, % TO DO: we could only apply restriction to FromNode
+  ),
   % Compute all possible transitions
-  findall(ArgList, Module:PredTerm, Results),
+  findall(ArgList, EdgeCall, Results),
   % Compute the graph file content
-  transition_graph_edge_atoms(Results, FromIndex, ToIndex, LabelIndex, EdgeAtoms),
-  append(EdgeAtoms, ['}'], EdgesWithClosingBracket),
+  transition_graph_edge_atoms(Results, FromIndex, ToIndex, LabelIndex, EdgeDescAtoms),
+  append([NodeDescAtoms,EdgeDescAtoms, ['}']], EdgesWithClosingBracket),
   atom_concat(['digraph {\n'|EdgesWithClosingBracket], GraphFileContentAtom),
   % Assert the result response
   assert_success_response(query, [], '', [print_transition_graph=GraphFileContentAtom]).
-handle_print_transition_graph(_PredSpec, _FromIndex, _ToIndex, _LabelIndex).
+handle_print_transition_graph(_EdgePredSpec, _FromIndex, _ToIndex, _LabelIndex).
   % If some requirements are not fulfilled, the first clause asserts an error response and fails
+
+% generate dot node name and dot description atom
+% example fact for NodePredSpec:
+% node(a,[label/'A',shape/rect, style/filled, fillcolor/yellow]).
+get_transition_graph_node_atom(NodePredSpec,NodeName,NodeDotDesc) :-
+  module_name_expanded_pred_spec(NodePredSpec, Module:PredName/PredArity),
+  length(ArgList, PredArity),
+  ArgList = [NodeName|ArgTail], % first argument is the identifier/name of the node
+  NodeCall =.. [PredName|ArgList],
+  call(Module:NodeCall), % generate solutions for the node predicate
+  (ArgTail = [DotList|_], % we have a potential argument with infos about the style, label, ...
+   findall(dot_attr(Attr,Val),get_dot_node_attribute(Attr,Val,DotList),Attrs),
+   Attrs = [_|_] % we have found at least one attribute
+   -> gen_dot_node_desc(NodeName,Attrs,Codes,[]),
+      atom_codes(NodeDotDesc,Codes)
+   ; NodeDotDesc = ''
+  ).
+
+
 
 % provide a default version of the command which automatically sets from,to and label index.
 % e.g. we can call jupyter:print_transition_graph(edge/2).
-handle_print_transition_graph(PredSpec) :-
-  module_name_expanded_pred_spec(PredSpec, _Module:_PredName/PredArity),
+handle_print_transition_graph(NodePredSpec,EdgePredSpec) :-
+  module_name_expanded_pred_spec(EdgePredSpec, _Module:_PredName/PredArity),
   FromIndex=1, ToIndex=PredArity,
   (PredArity =< 2 -> LabelIndex=0
    ; LabelIndex=2),
-  handle_print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex).
+  handle_print_transition_graph(NodePredSpec,EdgePredSpec, FromIndex, ToIndex, LabelIndex).
 
 % module_name_expanded_pred_spec(+PredSpec, -MPredSpec)
 module_name_expanded_pred_spec(Module:PredName/PredArity, Module:PredName/PredArity) :- !.
@@ -1513,6 +1545,85 @@ bind_member(Label,Value,List) :- member(Binding,List), binding(Binding,Label,Val
 binding('='(Label,Value),Label,Value).
 binding('/'(Label,Value),Label,Value).
 binding('-'(Label,Value),Label,Value).
+
+get_dot_node_attribute(Attr2,Value,List) :- bind_member(Attr,Value,List),
+   valid_dot_node_attribute(Attr,Attr2).
+
+valid_dot_node_attribute(label,label).
+valid_dot_node_attribute(color,color).
+valid_dot_node_attribute(colour,color).
+valid_dot_node_attribute(fillcolor,fillcolor).
+valid_dot_node_attribute(shape,shape).
+valid_dot_node_attribute(style,style).
+
+valid_dot_shape('Mcircle').
+valid_dot_shape('Mdiamond').
+valid_dot_shape('Msquare').
+valid_dot_shape(box).
+valid_dot_shape(box3d). % requires newer version of graphviz
+valid_dot_shape(cds). % requires newer version of graphviz
+valid_dot_shape(circle).
+valid_dot_shape(component). % requires newer version of graphviz
+valid_dot_shape(cylinder). % requires newer version of graphviz
+valid_dot_shape(diamond).
+valid_dot_shape(doublecircle).
+valid_dot_shape(doubleoctagon).
+valid_dot_shape(egg).
+valid_dot_shape(ellipse).
+valid_dot_shape(folder). % requires newer version of graphviz
+valid_dot_shape(hexagon).
+valid_dot_shape(house).
+valid_dot_shape(invhouse).
+valid_dot_shape(invtrapez).
+valid_dot_shape(invtrapezium).
+valid_dot_shape(invtriangle).
+valid_dot_shape(larrow). % requires newer version of graphviz
+valid_dot_shape(lpromoter). % requires newer version of graphviz
+valid_dot_shape(none).
+valid_dot_shape(note). % requires newer version of graphviz
+valid_dot_shape(octagon).
+valid_dot_shape(oval).
+valid_dot_shape(parallelogram).
+valid_dot_shape(pentagon).
+valid_dot_shape(plain).
+valid_dot_shape(plaintext).
+valid_dot_shape(point).
+valid_dot_shape(promoter). % requires newer version of graphviz
+valid_dot_shape(record).
+valid_dot_shape(rarrow). % requires newer version of graphviz
+valid_dot_shape(rect).
+valid_dot_shape(rectangle).
+valid_dot_shape(rpromoter). % requires newer version of graphviz
+valid_dot_shape(septagon).
+valid_dot_shape(square).
+valid_dot_shape(star). % requires newer version of graphviz
+valid_dot_shape(tab). % requires newer version of graphviz
+valid_dot_shape(trapezium).
+valid_dot_shape(triangle).
+valid_dot_shape(tripleoctagon).
+
+valid_dot_node_style(bold).
+valid_dot_node_style(dashed).
+valid_dot_node_style(diagonals).
+valid_dot_node_style(dotted).
+valid_dot_node_style(filled).
+valid_dot_node_style(rounded).
+valid_dot_node_style(solid).
+valid_dot_node_style(striped).
+valid_dot_node_style(wedged).
+valid_dot_node_style(none).
+
+% generate a node description as list of codes
+% | ?- jupyter_term_handling:gen_node_desc(a,[dot_attr(label,b),dot_attr(color,c)],A,[]), format("~s~n",[A]).
+% a [label="b", color="c"]
+gen_dot_node_desc(NodeName,Attrs) --> gen_atom(NodeName)," [", gen_node_attr_codes(Attrs),"]",[10].
+gen_node_attr_codes([]) --> "".
+gen_node_attr_codes([dot_attr(Attr,Val)]) --> !, gen_atom(Attr),"=\"",gen_atom(Val),"\"".
+gen_node_attr_codes([dot_attr(Attr,Val)|Tail]) --> 
+   gen_atom(Attr),"=\"",gen_atom(Val),"\", ",
+   gen_node_attr_codes(Tail).
+gen_atom(Atom,In,Out) :- atom_codes(Atom,Codes), append(Codes,Out,In).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
