@@ -1138,7 +1138,9 @@ handle_print_sld_tree(Goal, Bindings) :-
   % Retract previous data
   catch(retractall(sld_data(_GoalCodes, _Inv, _ParentInv)), _GoalInvDataException, true),
   % Call the goal and collect the needed data
-  jupyter_query_handling:call_query_with_output_to_file(jupyter_term_handling:call_with_sld_data_collection(Goal, Exception, IsFailure), 0, Bindings, _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
+  jupyter_query_handling:call_query_with_output_to_file(
+       jupyter_term_handling:call_with_sld_data_collection(Goal, Exception, IsFailure), 0, Bindings,
+                                                   _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
   retractall(collect_sld_data),
   % Compute the graph file content
   sld_graph_file_content(GraphFileContentAtom),

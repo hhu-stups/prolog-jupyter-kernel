@@ -23,6 +23,9 @@
      debug_mode_for_breakpoints/0
     ]).
 
+:- meta_predicate call_with_output_to_file(0,-, -).
+:- meta_predicate call_query_with_output_to_file(0,-, -, -, -, -, -).
+:- meta_predicate call_with_exception_handling(0,-).
 
 swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
 sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
@@ -73,15 +76,14 @@ file_name(test, 'test_definition.pl').
 % If an exception is thrown when calling the goal, ErrorMessageData is a term of the form message_data(Kind, Term) so that the acutal error message can be retrieved with print_message(Kind, Term).
 % If Goal=jupyter:trace(TraceGoal), debug mode has to be switched off afterwards.
 call_with_output_to_file(Goal, Output, ErrorMessageData) :-
-  goal_with_module(Goal, MGoal),
   prepare_call_with_output_to_file,
   % Call the goal Goal and compute the runtime
-  ( call_with_exception_handling(MGoal, ErrorMessageData)
+  ( call_with_exception_handling(Goal, ErrorMessageData)
   ; % Goal failed
     reset_output_streams(true),
     fail
   ),
-  cleanup_and_read_output_from_file(MGoal, Output).
+  cleanup_and_read_output_from_file(Goal, Output).
 
 
 % call_query_with_output_to_file(+Goal, +CallRequestId, +Bindings, +OriginalTermData, -Output, -ErrorMessageData -IsFailure)
@@ -89,7 +91,6 @@ call_with_output_to_file(Goal, Output, ErrorMessageData) :-
 % Like call_with_output_to_file/3.
 % Additionally, the runtime of the goal Goal is elapsed and query data is asserted.
 call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure) :-
-  goal_with_module(Goal, MGoal),
   % Compute the atom of the goal Goal before calling it causes variables to be bound
   % The atom is needed for the term data which is asserted
   write_term_to_codes(Goal, GoalCodes, [variable_names(Bindings)]),
@@ -97,17 +98,13 @@ call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, 
   prepare_call_with_output_to_file,
   % Call the goal Goal and compute the runtime
   statistics(walltime, _Value),
-  ( call_with_exception_handling(MGoal, ErrorMessageData)
+  ( call_with_exception_handling(Goal, ErrorMessageData)
   ; % Goal failed
     IsFailure = true
   ),
   assert_query_data(CallRequestId, term_data(GoalAtom, Bindings), OriginalTermData),
-  cleanup_and_read_output_from_file(MGoal, Output).
+  cleanup_and_read_output_from_file(Goal, Output).
 
-
-% goal_with_module(+Goal, -MGoal)
-goal_with_module(Module:Goal, Module:Goal) :- !.
-goal_with_module(Goal, user:Goal).
 
 
 prepare_call_with_output_to_file :-
