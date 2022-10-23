@@ -48,7 +48,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
-:- use_module(library(lists), [delete/3, reverse/2, nth1/3]).
+:- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2]).
 :- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jupyter_jsonrpc, [send_error_reply/3]).
@@ -1401,10 +1401,9 @@ atom_concat_([Atom|Atoms], AtomSoFar, ResultAtom) :-
 % If LabelIndex=0, the edges are not labelled.
 handle_print_transition_graph(NodePredSpec, EdgePredSpec, FromIndex, ToIndex, LabelIndex) :-
   % Check that the predicate specification and indices are correct
-  module_name_expanded_pred_spec(EdgePredSpec, Module:PredName/PredArity),
+  module_name_expanded_pred_spec(EdgePredSpec, Module:PredName/PredArity,PredTerm),
   check_indices(PredArity, FromIndex, ToIndex, LabelIndex),
   !,
-  length(ArgList, PredArity),
   PredTerm =.. [PredName|ArgList],
   % compute all possible nodes
   (NodePredSpec=true
@@ -1431,10 +1430,9 @@ handle_print_transition_graph(_EdgePredSpec, _FromIndex, _ToIndex, _LabelIndex).
 % example fact for NodePredSpec:
 % node(a,[label/'A',shape/rect, style/filled, fillcolor/yellow]).
 get_transition_graph_node_atom(NodePredSpec,NodeName,NodeDotDesc) :-
-  module_name_expanded_pred_spec(NodePredSpec, Module:PredName/PredArity),
-  length(ArgList, PredArity),
-  ArgList = [NodeName|ArgTail], % first argument is the identifier/name of the node
+  module_name_expanded_pred_spec(NodePredSpec, Module:PredName/_PredArity, NodeCall),
   NodeCall =.. [PredName|ArgList],
+  ArgList = [NodeName|ArgTail], % first argument is the identifier/name of the node
   call(Module:NodeCall), % generate solutions for the node predicate
   (ArgTail = [DotList|_], % we have a potential argument with infos about the style, label, ...
    findall(dot_attr(Attr,Val),get_dot_node_attribute(Attr,Val,DotList),Attrs),
@@ -1449,25 +1447,36 @@ get_transition_graph_node_atom(NodePredSpec,NodeName,NodeDotDesc) :-
 % provide a default version of the command which automatically sets from,to and label index.
 % e.g. we can call jupyter:print_transition_graph(edge/2).
 handle_print_transition_graph(NodePredSpec,EdgePredSpec) :-
-  module_name_expanded_pred_spec(EdgePredSpec, _Module:_PredName/PredArity),
+  module_name_expanded_pred_spec(EdgePredSpec, _Module:_PredName/PredArity,_),
   FromIndex=1, ToIndex=PredArity,
   (PredArity =< 2 -> LabelIndex=0
    ; LabelIndex=2),
   handle_print_transition_graph(NodePredSpec,EdgePredSpec, FromIndex, ToIndex, LabelIndex).
 
+% expand module name to determine arity and provide a predicate call
+% can be called with M:p/n or p/n or M:p or M:p(arg1,...)
+% in the latter case the call arguments are passed through
+% TODO: maybe get rid of this using meta_predicate annotations
 % module_name_expanded_pred_spec(+PredSpec, -MPredSpec)
-module_name_expanded_pred_spec(Module:PredName/PredArity, Module:PredName/PredArity) :- !.
-module_name_expanded_pred_spec(PredName/PredArity, user:PredName/PredArity) :- !.
-module_name_expanded_pred_spec(Module:PredName, Module:PredName/PredArity) :-
+module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity,PredCall) :- 
+   get_module(PredSpec,Module,PredName/PredArity),!,
+   functor(PredCall,PredName,PredArity).
+module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity,PredCall) :-
+   get_module(PredSpec,Module,PredName),
+   atom(PredName),  % just predicate name w/o arity
    current_predicate(Module:PredName/Arity),!,
-   PredArity=Arity.
-module_name_expanded_pred_spec(PredName, user:PredName/PredArity) :-
-   current_predicate(user:PredName/Arity),!,
-   PredArity=Arity.
-module_name_expanded_pred_spec(PredSpec, _) :-
-  assert_error_response(exception, message_data(error, jupyter(print_transition_graph_pred_spec(PredSpec))), '', []),
-  fail.
+   PredArity=Arity,
+   functor(PredCall,PredName,PredArity).
+module_name_expanded_pred_spec(PredSpec, Module:PredName/PredArity,PredCall) :-
+   get_module(PredSpec,Module,PredCall),
+   functor(PredCall,PredName,PredArity),
+   PredArity>0,!.
+module_name_expanded_pred_spec(PredSpec, _ , _) :-
+   assert_error_response(exception, message_data(error, jupyter(print_transition_graph_pred_spec(PredSpec))), '', []),
+   fail.
 
+get_module(Module:Term,M,T) :- !, M=Module,T=Term.
+get_module(Term,user,Term).
 
 % check_indices(+PredArity, +FromIndex, +ToIndex, +LabelIndex)
 check_indices(PredArity, FromIndex, ToIndex, LabelIndex) :-
@@ -1618,13 +1627,13 @@ valid_dot_node_style(none).
 % generate a node description as list of codes
 % | ?- jupyter_term_handling:gen_node_desc(a,[dot_attr(label,b),dot_attr(color,c)],A,[]), format("~s~n",[A]).
 % a [label="b", color="c"]
-gen_dot_node_desc(NodeName,Attrs) --> gen_atom(NodeName)," [", gen_node_attr_codes(Attrs),"]",[10].
+gen_dot_node_desc(NodeName,Attrs) --> "\"", gen_atom(NodeName),"\" [", gen_node_attr_codes(Attrs),"]",[10].
 gen_node_attr_codes([]) --> "".
 gen_node_attr_codes([dot_attr(Attr,Val)]) --> !, gen_atom(Attr),"=\"",gen_atom(Val),"\"".
 gen_node_attr_codes([dot_attr(Attr,Val)|Tail]) --> 
    gen_atom(Attr),"=\"",gen_atom(Val),"\", ",
    gen_node_attr_codes(Tail).
-gen_atom(Atom,In,Out) :- atom_codes(Atom,Codes), append(Codes,Out,In).
+gen_atom(Atom,In,Out) :- format_to_codes('~w',Atom,Codes), append(Codes,Out,In).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1804,6 +1813,7 @@ retract_jupyter_discontiguous([PredSpec|PredSpecs]) :-
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 assert_success_response(Type, Bindings, Output, AdditionalData) :-
+  %format('Success ~w:~n ~w~n~w~n ~w~n',[Type,Bindings,Output,AdditionalData]),
   assertz(term_response(json([status=success, type=Type, bindings=json(Bindings), output=Output|AdditionalData]))).
 
 
@@ -1814,6 +1824,7 @@ assert_success_response(Type, Bindings, Output, AdditionalData) :-
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 assert_error_response(ErrorCode, ErrorMessageData, Output, AdditionalData) :-
+  %format('ERROR ~w:~n ~w~n~w~n ~w~n',[ErrorCode,ErrorMessageData,Output,AdditionalData]),
   jupyter_jsonrpc:json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, ErrorData),
   assertz(term_response(json([status=error, error=ErrorData]))).
 
