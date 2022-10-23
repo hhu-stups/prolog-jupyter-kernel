@@ -48,7 +48,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
-:- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2]).
+:- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2, maplist/3]).
 :- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jupyter_jsonrpc, [send_error_reply/3]).
@@ -1408,11 +1408,12 @@ handle_print_transition_graph(NodePredSpec, EdgePredSpec, FromIndex, ToIndex, La
   % compute all possible nodes
   (NodePredSpec=true
     -> EdgeCall = Module:PredTerm
-    ;  findall(NodeName,get_transition_graph_node_atom(NodePredSpec,NodeName,_),Nodes),
-       findall(NodeDotDesc,get_transition_graph_node_atom(NodePredSpec,_,NodeDotDesc),NodeDescAtoms),
+    ;  findall(node(NodeName,NodeDotDesc),get_transition_graph_node_atom(NodePredSpec,NodeName,NodeDotDesc),Nodes),
+       sort(Nodes,SNodes),
+       maplist(get_node_desc,SNodes,NodeDescAtoms),
        nth1(FromIndex, ArgList, FromNode),
        nth1(ToIndex, ArgList, ToNode),
-       EdgeCall = (member(FromNode,Nodes),Module:PredTerm,member(ToNode,Nodes)) 
+       EdgeCall = (member(node(FromNode,_),SNodes),Module:PredTerm,member(node(ToNode,_),SNodes)) 
        % only take nodes into account which are declared, % TO DO: we could only apply restriction to FromNode
   ),
   % Compute all possible transitions
@@ -1425,6 +1426,8 @@ handle_print_transition_graph(NodePredSpec, EdgePredSpec, FromIndex, ToIndex, La
   assert_success_response(query, [], '', [print_transition_graph=GraphFileContentAtom]).
 handle_print_transition_graph(_EdgePredSpec, _FromIndex, _ToIndex, _LabelIndex).
   % If some requirements are not fulfilled, the first clause asserts an error response and fails
+
+get_node_desc(node(_,Desc),Desc).
 
 % generate dot node name and dot description atom
 % example fact for NodePredSpec:
@@ -1813,7 +1816,7 @@ retract_jupyter_discontiguous([PredSpec|PredSpecs]) :-
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 assert_success_response(Type, Bindings, Output, AdditionalData) :-
-  %format('Success ~w:~n ~w~n~w~n ~w~n',[Type,Bindings,Output,AdditionalData]),
+  %format(user_error,'Success ~w:~n ~w~n~w~n ~w~n',[Type,Bindings,Output,AdditionalData]),
   assertz(term_response(json([status=success, type=Type, bindings=json(Bindings), output=Output|AdditionalData]))).
 
 
@@ -1824,7 +1827,7 @@ assert_success_response(Type, Bindings, Output, AdditionalData) :-
 % Output is the output of the term which was executed.
 % AdditionalData is a list containing Key=Value pairs providing additional data for the client.
 assert_error_response(ErrorCode, ErrorMessageData, Output, AdditionalData) :-
-  %format('ERROR ~w:~n ~w~n~w~n ~w~n',[ErrorCode,ErrorMessageData,Output,AdditionalData]),
+  %format(user_error,'ERROR ~w:~n ~w~n~w~n ~w~n',[ErrorCode,ErrorMessageData,Output,AdditionalData]),
   jupyter_jsonrpc:json_error_term(ErrorCode, ErrorMessageData, Output, AdditionalData, ErrorData),
   assertz(term_response(json([status=error, error=ErrorData]))).
 
