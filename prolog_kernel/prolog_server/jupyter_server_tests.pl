@@ -10,13 +10,11 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(plunit)).
 :- use_module(library(process), [process_create/3, process_release/1]).
 
-:- if(swi).
+
 :- use_module(jupyter_jsonrpc, [send_json_request/6]).
 :- use_module(jupyter_server).
-:- else.
-:- use_module(jupyter_jsonrpc, [send_json_request/6]).
-:- use_module(jupyter_server).
-:- endif.
+:- use_module(jupyter_preferences,[set_preference/2]).
+
 
 
 :- dynamic process_data/3. % process_data(ProcReference, InputStream, OutputStream)
@@ -41,6 +39,7 @@ process_initialization_data(Args, Executable) :-
 
 
 start_process :-
+  set_preference(verbosity,2),
   % Get the arguments and executable which are needed to start the server process
   process_initialization_data(Args, Executable),
   % Create a new process and assert its reference and the input and output streams so that the process can be released and the streams can be written to and read from
@@ -409,7 +408,7 @@ expected_prolog_message_subterm(syntax_error_in_second_term, 0, 107, '! Syntax e
 :- begin_tests(exceptions, [setup(start_process), cleanup(release_process(true))]).
 
 test(non_existent_predicate, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
-  error_result_message_subterms(non_existent_predicate, 'non_existent_predicate.', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
+  error_result_message_subterms(non_existent_predicate, 'user:non_existent_predicate.', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(instantiation_error, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   error_result_message_subterms(instantiation_error, 'X is Y + 2.', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).

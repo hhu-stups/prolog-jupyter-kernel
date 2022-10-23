@@ -48,7 +48,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
-:- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2, maplist/3]).
+:- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2]).
 :- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
 :- use_module(jupyter_jsonrpc, [send_error_reply/3]).
@@ -57,6 +57,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 :- if(sicstus).
 :- use_module(library(aggregate), [forall/2]).
+:- use_module(library(lists), [maplist/3]).
 :- use_module(library(file_systems), [delete_file/1]).
 :- use_module(jupyter_variable_bindings, [term_with_stored_var_bindings/4, store_var_bindings/1]).
 :- endif.
@@ -365,8 +366,10 @@ retract_previous_clauses(MPredSpec, RetractedClausesJson, Output) :-
   catch(retractall(pred_definition_specs(_)), _Exception, true),
   assert(pred_definition_specs(NewPredDefinitionSpecs)),
   ( var(RetractedClauses) ->
-    RetractedClausesJson = json([])
-  ; RetractedClausesJson = json([RetractedClauses])
+     RetractedClausesJson = json([])
+   ; get_preference(verbosity,L), L<2 ->
+     RetractedClausesJson = json([])
+   ; RetractedClausesJson = json([RetractedClauses])
   ).
 
 
@@ -443,7 +446,7 @@ retract_previous_clauses(PredSpec, PredDefinitionSpecs, [PredSpec|PredDefinition
 compute_assert_message(PredSpec, AssertMessage) :-
   format_to_atom('% Asserting clauses for ~w~n', [PredSpec], AssertMessage).
 
-format_to_atom(_,_,Atom) :-  get_preference(verbosity,L), L<1,!, Atom=''.
+format_to_atom(_,_,Atom) :-  get_preference(verbosity,L), L<2,!, Atom=''.
 format_to_atom(Msg,Args,Atom) :- 
   format_to_codes(Msg, Args, Codes),
   atom_codes(Atom, Codes).
