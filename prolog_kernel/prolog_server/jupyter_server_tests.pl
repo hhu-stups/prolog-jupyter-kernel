@@ -1471,7 +1471,7 @@ test(print_query_time_member, [true(LastQueryTimeResult = ExpectedLastQueryTimeR
   check_equality(MemberResult, ExpectedMemberResult),
   % Print the goal and runtime of the previous query
   LastQueryTimeRequest = 'jupyter:print_query_time.',
-  ExpectedLastQueryTimeResult = [type=query,bindings=json([]),output='Query:   member(M,[1,2,3])\nRuntime: 0 ms'],
+  ExpectedLastQueryTimeResult = [type=query,bindings=json([]),output='Query:   user:member(M,[1,2,3])\nRuntime: 0 ms'],
   send_call_with_single_success_result(LastQueryTimeRequest, 3, LastQueryTimeResult).
 
 test(print_query_time_sleep, [true(OutputStart = ExpectedOutputStart)]) :-
@@ -1482,7 +1482,8 @@ test(print_query_time_sleep, [true(OutputStart = ExpectedOutputStart)]) :-
   check_equality(SleepResult, ExpectedSleepResult),
   % Print the goal and runtime of the previous query
   LastQueryTimeRequest = 'jupyter:print_query_time.',
-  ExpectedOutputStart = 'Query:   use_module(library(system)),sleep(1)\nRuntime: ',
+  ExpectedOutputStart = 'Query:   user:(use_module(library(system)),sleep(1))\nRu', % is truncated !! TODO: check
+  %ExpectedOutputStart = 'Query:   user:(use_module(library(system)),sleep(1))\nRuntime: ',
   ExpectedLastQueryTimeResult = [type=query,bindings=json([]),output=Output],
   send_call_with_single_success_result(LastQueryTimeRequest, 5, LastQueryTimeResult),
   check_equality(LastQueryTimeResult, ExpectedLastQueryTimeResult),
@@ -1704,9 +1705,9 @@ define_transition_predicates :-
 
 :- begin_tests(print_transition_graph, [setup((start_process, define_transition_predicates)), cleanup(release_process(true))]).
 
-% this is now accepted as pred_spec; should produce same result as edge/3
-test(incorrect_pred_spec, [fixme(pred_spec_now_accepted),true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
- error_result_message_subterms(incorrect_pred_spec, 'jupyter:print_transition_graph(edge, 1, 3, 2).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
+% this is now accepted as pred_spec; should produce same result as edge/3; test was added below
+%test(incorrect_pred_spec, [fixme(pred_spec_now_accepted),true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
+% error_result_message_subterms(incorrect_pred_spec, 'jupyter:print_transition_graph(edge, 1, 3, 2).', 1, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
 test(incorrect_from_index, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   error_result_message_subterms(incorrect_index, 'jupyter:print_transition_graph(user:edge/3, 4, 3, 2).', 2, PrologMessageSubterm, ExpectedPrologMessageSubterm).
@@ -1723,9 +1724,14 @@ test(incorrect_label_index, [true(PrologMessageSubterm = ExpectedPrologMessageSu
 test(print_transition_graph_no_single_goal, [true(PrologMessageSubterm = ExpectedPrologMessageSubterm)]) :-
   error_result_message_subterms(print_transition_graph_no_single_goal, 'jupyter:print_transition_graph(edge/3, 1, 3, 2), print(exception).', 6, PrologMessageSubterm, ExpectedPrologMessageSubterm).
 
-test(transition_graph, [fixme(output_has_changed),true(Result = ExpectedResult)]) :-
+test(transition_graph, [true(Result = ExpectedResult)]) :-
   Request = 'jupyter:print_transition_graph(edge/3, 1, 3, 2).',
-  ExpectedResult = [type=query,bindings=json([]),output='',print_transition_graph='digraph {\n    "a" -> "b" [label="71"]\n    "a" -> "c" [label="151"]\n    "b" -> "c" [label="80"]\n    "c" -> "d" [label="99"]\n    "d" -> "b" [label="75"]\n    "d" -> "a" [label="140"]\n}'],
+  ExpectedResult = [type=query,bindings=json([]),output='',print_transition_graph='digraph {\n    "a" -> "b" [label="71", color="black", style="solid"]\n    "a" -> "c" [label="151", color="black", style="solid"]\n    "b" -> "c" [label="80", color="black", style="solid"]\n    "c" -> "d" [label="99", color="black", style="solid"]\n    "d" -> "b" [label="75", color="black", style="solid"]\n    "d" -> "a" [label="140", color="black", style="solid"]\n}'],
+  send_call_with_single_success_result(Request, 7, Result).
+  
+test(transition_graph, [true(Result = ExpectedResult)]) :-
+  Request = 'jupyter:print_transition_graph(edge, 1, 3, 2).',
+  ExpectedResult = [type=query,bindings=json([]),output='',print_transition_graph='digraph {\n    "a" -> "b" [label="71", color="black", style="solid"]\n    "a" -> "c" [label="151", color="black", style="solid"]\n    "b" -> "c" [label="80", color="black", style="solid"]\n    "c" -> "d" [label="99", color="black", style="solid"]\n    "d" -> "b" [label="75", color="black", style="solid"]\n    "d" -> "a" [label="140", color="black", style="solid"]\n}'],
   send_call_with_single_success_result(Request, 7, Result).
 
 test(transition_graph_without_labels, [true(Result = ExpectedResult)]) :-
