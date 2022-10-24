@@ -21,7 +21,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(jupyter_preferences, [set_preference/2]).
 
 jupyter_server_start :-
-  jupyter_server_start(normal).
+  jupyter_server_start(1).
 
 jupyter_server_start(JupyterKernelVerbosityLevel) :-
   setup,
