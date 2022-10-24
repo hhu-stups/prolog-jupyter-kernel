@@ -23,14 +23,16 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 % process_initialization_data(-Args, -Executable)
 :- if(swi).
 process_initialization_data(Args, Executable) :-
-  Args = ['-l', 'jupyter_server',
+  current_module(jupyter_server,AbsFile),
+  Args = ['-l', AbsFile,
           '-t', 'jupyter_server_start',
           '-q'],
   % The value of the Prolog flag executable is the pathname of the running executable
   current_prolog_flag(executable, Executable).
 :- else.
 process_initialization_data(Args, Executable) :-
-  Args = ['-l', 'jupyter_server',
+  current_module(jupyter_server,AbsFile),
+  Args = ['-l', AbsFile,
           '--goal', 'jupyter_server_start;halt.',
           '--nologo', '--noinfo'],
   % $SP_APP_PATH: path to the SICStus that is running this file
