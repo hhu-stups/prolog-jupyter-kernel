@@ -516,30 +516,40 @@ replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings,
 
 % handle_query_term_(+Query, +IsDirective, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont, -Cont)
 % retry
-handle_query_term_(retry, _IsDirective, _CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(retry, _IsDirective, _CallRequestId, Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_retry(Stack).
-handle_query_term_(jupyter:retry, _IsDirective, _CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:retry, _IsDirective, _CallRequestId, Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_retry(Stack).
 % cut
-handle_query_term_(jupyter:cut, _IsDirective, _CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
+handle_query_term_(jupyter:cut, _IsDirective, _CallRequestId, Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_cut(Stack, Cont).
-handle_query_term_(cut, _IsDirective, _CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
+handle_query_term_(cut, _IsDirective, _CallRequestId, Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_cut(Stack, Cont).
 % halt
-handle_query_term_(jupyter:halt, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, done) :- !,
+handle_query_term_(jupyter:halt, _IsDirective, _CallRequestId, _Stack, 
+                   _Bindings, _OriginalTermData, _LoopCont, done) :- !,
   % By unifying Cont=done, the loop reading and handling messages is stopped
   handle_halt.
-handle_query_term_(halt, _IsDirective,_CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, done) :- !,
+handle_query_term_(halt, _IsDirective,_CallRequestId, _Stack, 
+                  _Bindings, _OriginalTermData, _LoopCont, done) :- !,
   % By unifying Cont=done, the loop reading and handling messages is stopped
   handle_halt.
 % jupyter predicates
-handle_query_term_(jupyter:print_sld_tree(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:print_sld_tree(Goal), _IsDirective, _CallRequestId, _Stack, 
+                   Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_sld_tree(Goal, Bindings).
-handle_query_term_(jupyter:print_stack, _IsDirective, CallRequestId, Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:print_stack, _IsDirective, CallRequestId, Stack, 
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_stack(Stack, CallRequestId).
-handle_query_term_(jupyter:print_table(Goal), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:print_table(Goal), _IsDirective, _CallRequestId, _Stack,
+                    Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table_with_findall(Bindings, Goal).
-handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective, _CallRequestId, _Stack, Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:print_table(ValuesLists, VariableNames), _IsDirective, _CallRequestId, _Stack, 
+                   Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_table(Bindings, ValuesLists, VariableNames).
 handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex, LabelIndex),
                    _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
@@ -550,7 +560,8 @@ handle_query_term_(jupyter:print_transition_graph(PredSpec, FromIndex, ToIndex),
 handle_query_term_(jupyter:show_graph(NodeSpec,PredSpec),
                   _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_print_transition_graph(NodeSpec,PredSpec).
-handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(jupyter:set_prolog_impl(PrologImplementationID), _IsDirective, _CallRequestId, _Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_set_prolog_impl(PrologImplementationID).
 handle_query_term_(jupyter:update_completion_data, 
                    _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
@@ -566,22 +577,28 @@ handle_query_term_(run_tests(Spec), _IsDirective, CallRequestId, Stack, Bindings
 handle_query_term_(run_tests(Spec, Options), _IsDirective, CallRequestId, Stack, Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_run_tests(run_tests(Spec, Options), CallRequestId, Stack, Bindings, Cont).
 % trace
-handle_query_term_(trace, _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(trace, _IsDirective, _CallRequestId, _Stack, 
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_trace(trace/0).
 :- if(swi).
-handle_query_term_(trace(_Pred), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(trace(_Pred), _IsDirective, _CallRequestId, _Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_trace(trace/1).
-handle_query_term_(trace(_Pred, _Ports), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(trace(_Pred, _Ports), _IsDirective, _CallRequestId, _Stack,
+                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_trace(trace/2).
 :- endif.
 % leash/1
-handle_query_term_(leash(_Ports), _IsDirective, _CallRequestId, _Stack, _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(leash(_Ports), _IsDirective, _CallRequestId, _Stack,
+                    _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   assert_error_response(exception, message_data(error, jupyter(leash_pred)), '', []).
 :- if(sicstus).
 % abolish
-handle_query_term_(abolish(Predicates), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continue) :- !,
+handle_query_term_(abolish(Predicates), _IsDirective, CallRequestId, _Stack,
+                   _Bindings, OriginalTermData, _LoopCont, continue) :- !,
   handle_abolish(abolish(Predicates), CallRequestId, OriginalTermData).
-handle_query_term_(abolish(Predicates, Options), _IsDirective, CallRequestId, _Stack, _Bindings, OriginalTermData, _LoopCont, continus) :- !,
+handle_query_term_(abolish(Predicates, Options), _IsDirective, CallRequestId, _Stack,
+                   _Bindings, OriginalTermData, _LoopCont, continus) :- !,
   handle_abolish(abolish(Predicates, Options), CallRequestId, OriginalTermData).
 :- endif.
 % Any other query
