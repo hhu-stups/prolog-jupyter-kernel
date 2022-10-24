@@ -609,8 +609,9 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
   RecStack = [GoalAtom|Stack],
   retractall(is_retry(_)),
   asserta(is_retry(false)),
+  add_user_module_prefix_if_necessary(Goal,MGoal), % add user prefix; important for use_module, ...
   % Call the goal Goal
-  jupyter_query_handling:call_query_with_output_to_file(Goal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure),
+  call_query_with_output_to_file(MGoal, CallRequestId, Bindings, OriginalTermData, Output, ErrorMessageData, IsFailure),
   retry_message_and_output(GoalAtom, Output, RetryMessageAndOutput),
   % Exception, failure or success from Goal
   ( nonvar(ErrorMessageData) -> % Exception
@@ -638,7 +639,11 @@ handle_query(Goal, IsDirective, CallRequestId, Stack, Bindings, OriginalTermData
     )
   ),
   !.
-
+% add_user_module_prefix_if_necessary(+Goal, -MGoal)
+% add user module prefix used by Jupyter for user-defined predicates and for queries
+% it is important use_module(library(clpfd)), ... are executed in the user: scope so that operators are visible
+add_user_module_prefix_if_necessary(Module:Goal, Module:Goal) :- !.
+add_user_module_prefix_if_necessary(Goal, user:Goal). % note: also ok if Goal is a conjunction with its own module prefixes
 
 % assert_query_failure_response(+IsDirective, +GoalAtom, +Output)
 assert_query_failure_response(true, GoalAtom, Output) :-
@@ -1002,7 +1007,7 @@ test_definition_end(LoadFile) :-
   % When loading the file, an exception or warning might be output
   ( LoadFile==true ->
     % When loading the file, an exception or warning might be output
-    jupyter_query_handling:call_with_output_to_file(load_files(TestFileName), Output, ErrorMessageData)
+    jupyter_query_handling:call_with_output_to_file(user:load_files(TestFileName), Output, ErrorMessageData)
   ; otherwise ->
     Output = ''
   ),
@@ -1142,7 +1147,7 @@ handle_print_sld_tree(Goal, Bindings) :-
   % Retract previous data
   catch(retractall(sld_data(_GoalCodes, _Inv, _ParentInv)), _GoalInvDataException, true),
   % Call the goal and collect the needed data
-  jupyter_query_handling:call_query_with_output_to_file(
+  call_query_with_output_to_file(
        jupyter_term_handling:call_with_sld_data_collection(Goal, Exception, IsFailure), 0, Bindings,
                                                    _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
   retractall(collect_sld_data),
@@ -1775,7 +1780,8 @@ print_stack_([Query|Queries]) :-
 :- if(sicstus).
 % handle_abolish(+Goal, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont)
 handle_abolish(Goal, CallRequestId, OriginalTermData) :-
-  jupyter_query_handling:call_query_with_output_to_file(Goal, CallRequestId, [], OriginalTermData, Output, ErrorMessageData, IsFailure),
+  add_user_module_prefix_if_necessary(Goal,MGoal),
+  call_query_with_output_to_file(MGoal, CallRequestId, [], OriginalTermData, Output, ErrorMessageData, IsFailure),
   % Exception, failure or success from Goal
   ( nonvar(ErrorMessageData) -> % Exception
     !,
