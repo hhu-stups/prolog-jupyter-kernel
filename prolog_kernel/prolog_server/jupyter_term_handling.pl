@@ -1428,7 +1428,7 @@ handle_print_transition_graph(NodePredSpec, EdgePredSpec, FromIndex, ToIndex, La
   atom_concat(['digraph {\n'|EdgesWithClosingBracket], GraphFileContentAtom),
   % Assert the result response
   assert_success_response(query, [], '', [print_transition_graph=GraphFileContentAtom]).
-handle_print_transition_graph(_EdgePredSpec, _FromIndex, _ToIndex, _LabelIndex).
+handle_print_transition_graph(_NodePredSpec,_EdgePredSpec, _FromIndex, _ToIndex, _LabelIndex).
   % If some requirements are not fulfilled, the first clause asserts an error response and fails
 
 get_node_desc(node(_,Desc),Desc).
