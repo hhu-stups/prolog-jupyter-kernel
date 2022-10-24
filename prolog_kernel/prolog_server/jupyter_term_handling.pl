@@ -446,7 +446,8 @@ retract_previous_clauses(PredSpec, PredDefinitionSpecs, [PredSpec|PredDefinition
 compute_assert_message(PredSpec, AssertMessage) :-
   format_to_atom('% Asserting clauses for ~w~n', [PredSpec], AssertMessage).
 
-format_to_atom(_,_,Atom) :-  get_preference(verbosity,L), L<2,!, Atom=''.
+format_to_atom(_,_,Atom) :-  get_preference(verbosity,L), L<2,!, 
+  Atom=''.
 format_to_atom(Msg,Args,Atom) :- 
   format_to_codes(Msg, Args, Codes),
   atom_codes(Atom, Codes).

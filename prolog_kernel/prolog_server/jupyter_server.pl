@@ -6,7 +6,8 @@
 
 
 :- module(jupyter_server,
-    [jupyter_server_start/0]).
+    [jupyter_server_start/0,
+     jupyter_server_start/1]).
 
 
 swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
@@ -17,10 +18,14 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(jupyter, []).
 :- use_module(jupyter_request_handling, [loop/3]).
 :- use_module(jupyter_term_handling, [assert_sld_data/4]).
-
+:- use_module(jupyter_preferences, [set_preference/2]).
 
 jupyter_server_start :-
+  jupyter_server_start(normal).
+
+jupyter_server_start(JupyterKernelVerbosityLevel) :-
   setup,
+  set_preference(verbosity,JupyterKernelVerbosityLevel), % useful for testing purposes
   % Start the loop handling requests from the client
   jupyter_request_handling:loop(continue, [], _ContOut).
 
