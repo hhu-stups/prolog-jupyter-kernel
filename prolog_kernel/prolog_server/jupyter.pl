@@ -8,6 +8,7 @@
     [cut/0,
      %halt/0,
      help/0,
+     print_queries/0,
      print_queries/1,           % print_queries(+Ids)
      print_query_time/0,        % print_query_time
      print_sld_tree/1,          % print_sld_tree(+Goal)
@@ -373,12 +374,16 @@ print_query_time :-
   fail.
 
 
+
 % print_queries(+Ids)
 %
 % Prints the previous queries with ids in Ids in a way that they can be
 % - copied to a cell and executed right away or
 % - expanded with a head to define a predicate
 % If a query contains a term of the form $Var and a previous query contains the variable Var, $Var is replaced by the variable name.
+print_queries :-
+  print_queries(_).
+
 print_queries(Ids) :-
   (var(Ids) -> findall(Id, jupyter_query_handling:query_data(Id, _, _, _),Ids) ; true),
   findall(TermData-OriginalTermData, 
