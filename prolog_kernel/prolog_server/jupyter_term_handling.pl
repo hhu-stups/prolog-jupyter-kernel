@@ -500,7 +500,8 @@ handle_query_term(Term, IsDirective, CallRequestId, Stack, Bindings, LoopCont, C
     % Bindings needs to be copied so that the term can be read from the atom without any of the variables being instantiated by calling the term.
     copy_term(Bindings, BindingsCopy),
     write_term_to_atom(Term, Bindings, TermAtom),
-    handle_query_term_(UpdatedTerm, IsDirective, CallRequestId, Stack, UpdatedBindings, term_data(TermAtom, BindingsCopy), LoopCont, Cont)
+    handle_query_term_(UpdatedTerm, IsDirective, CallRequestId, Stack, UpdatedBindings,
+                        term_data(TermAtom, BindingsCopy), LoopCont, Cont)
   ).
 
 
@@ -513,12 +514,23 @@ replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings,
   catch(jupyter_variable_bindings:term_with_stored_var_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings), Exception, true).
 :- endif.
 
+is_query_alias(retry,jupyter:retry).
+is_query_alias(cut,jupyter:cut).
+is_query_alias(halt,jupyter:halt).
+is_query_alias(swi,jupyter:set_prolog_impl(swi)) :- \+ current_predicate(user:swi/0).
+is_query_alias(sicstus,jupyter:set_prolog_impl(sicstus)) :-  \+ current_predicate(user:sicstus/0).
+is_query_alias(show_graph(Nodes,Edges),jupyter:show_graph(Nodes,Edges)) :-  \+ current_predicate(user:show_graph/2).
+
 
 % handle_query_term_(+Query, +IsDirective, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont, -Cont)
+handle_query_term_(Call, IsDirective, CallRequestId, Stack,
+                   Bindings, OriginalTermData, LoopCont, Cont) :- 
+  %  jupyter_tools:format_log('Call: ~w~n',[Call]),
+  is_query_alias(Call,Alias),
+  !,
+  handle_query_term_(Alias, IsDirective, CallRequestId, Stack,
+                   Bindings, OriginalTermData, LoopCont, Cont).
 % retry
-handle_query_term_(retry, _IsDirective, _CallRequestId, Stack,
-                   _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
-  handle_retry(Stack).
 handle_query_term_(jupyter:retry, _IsDirective, _CallRequestId, Stack,
                    _Bindings, _OriginalTermData, _LoopCont, continue) :- !,
   handle_retry(Stack).
@@ -526,16 +538,9 @@ handle_query_term_(jupyter:retry, _IsDirective, _CallRequestId, Stack,
 handle_query_term_(jupyter:cut, _IsDirective, _CallRequestId, Stack,
                    _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
   handle_cut(Stack, Cont).
-handle_query_term_(cut, _IsDirective, _CallRequestId, Stack,
-                   _Bindings, _OriginalTermData, _LoopCont, Cont) :- !,
-  handle_cut(Stack, Cont).
 % halt
 handle_query_term_(jupyter:halt, _IsDirective, _CallRequestId, _Stack, 
                    _Bindings, _OriginalTermData, _LoopCont, done) :- !,
-  % By unifying Cont=done, the loop reading and handling messages is stopped
-  handle_halt.
-handle_query_term_(halt, _IsDirective,_CallRequestId, _Stack, 
-                  _Bindings, _OriginalTermData, _LoopCont, done) :- !,
   % By unifying Cont=done, the loop reading and handling messages is stopped
   handle_halt.
 % jupyter predicates
