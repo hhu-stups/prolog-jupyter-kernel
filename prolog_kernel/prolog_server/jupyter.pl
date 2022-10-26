@@ -380,7 +380,10 @@ print_query_time :-
 % - expanded with a head to define a predicate
 % If a query contains a term of the form $Var and a previous query contains the variable Var, $Var is replaced by the variable name.
 print_queries(Ids) :-
-  findall(TermData-OriginalTermData, (member(Id, Ids), jupyter_query_handling:query_data(Id, _Runtime, TermData, OriginalTermData)), QueriesData),
+  (var(Ids) -> findall(Id, jupyter_query_handling:query_data(Id, _, _, _),Ids) ; true),
+  findall(TermData-OriginalTermData, 
+        (member(Id, Ids), jupyter_query_handling:query_data(Id, _Runtime, TermData, OriginalTermData)),
+         QueriesData),
   print_queries(QueriesData, []).
 
 
