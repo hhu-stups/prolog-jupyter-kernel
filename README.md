@@ -151,3 +151,10 @@ Debugging the server code is not possible in the usual way by tracing invocation
 When a query is executed, all its output is written to a file named `.server_output`, which is deleted afterwards by `jupyter_query_handling:delete_output_file`. If an error occurs during the actual execution, the file cannot be deleted and thus, the **output of the goal can be accessed**. Otherwise, the deletion might be prevented.
 
 Furthermore, the server might send a response which the client cannot handle. In that case, **logging for the Python code** can be enabled by configuring `jupyter_logging`. For instance, the client logs the responses received from the server.
+
+### Credits
+
+The Prolog Jupyter kernel was developed by Anne Brecklinghaus in her Master's thesis at
+the University of Düsseldorf under the supervision of Michael Leuschel and Philipp Körner.
+Michael Leuschel is using the notebooks in his lectures and is adding features
+and making improvements along the way.
