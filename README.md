@@ -156,5 +156,5 @@ Furthermore, the server might send a response which the client cannot handle. In
 
 The Prolog Jupyter kernel was developed by Anne Brecklinghaus in her Master's thesis at
 the University of Düsseldorf under the supervision of Michael Leuschel and Philipp Körner.
-Michael Leuschel is using the notebooks in his lectures and is adding features
+Michael Leuschel is using the [notebooks in his lectures](https://gitlab.cs.uni-duesseldorf.de/general/stups/prob-teaching-notebooks/-/tree/master/) and is adding features
 and making improvements along the way.
