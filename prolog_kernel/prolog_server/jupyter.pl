@@ -39,7 +39,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 
 jupyter:version :-
   version(Maj,Min,Patch,Suffix),
-  jupyter_tools:format_log('Version ~w.~w.~w-~w~n',[Maj,Min,Patch,Suffix]),
+  %jupyter_tools:format_log('Version ~w.~w.~w-~w~n',[Maj,Min,Patch,Suffix]),
   format('Version ~w.~w.~w-~w of Jupyter-Prolog-Kernel~n',[Maj,Min,Patch,Suffix]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

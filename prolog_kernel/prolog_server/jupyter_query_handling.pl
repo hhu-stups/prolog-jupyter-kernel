@@ -20,12 +20,14 @@
      remove_output_lines_for/1,         % remove_output_lines_for(Type),
      retrieve_message/2,                % retrieve_message(+ErrorMessageData, -Message)
      send_reply_on_error/0,
-     debug_mode_for_breakpoints/0
+     debug_mode_for_breakpoints/0,
+     safe_call_without_sending_error_replies/1 % call
     ]).
 
 :- meta_predicate call_with_output_to_file(0,-, -).
 :- meta_predicate call_query_with_output_to_file(0,-, -, -, -, -, -).
 :- meta_predicate call_with_exception_handling(0,-).
+:- meta_predicate safe_call_without_sending_error_replies(0).
 
 swi     :- catch(current_prolog_flag(dialect, swi), _, fail), !.
 sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
@@ -55,6 +57,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 % If send_reply_on_error exists, an error reply is sent to the client if an unhandled error occurs and is printed with print_message/2.
 % This predicate is retracted when an error message is to be produced from an error term and therefore printed.
 send_reply_on_error.
+% TODO: this is very ugly, we need to get rid of this.
 
 
 file_name(stdout, '.server_stdout').
@@ -62,6 +65,12 @@ file_name(message_output, '.message_output').
 file_name(output, '.server_output').
 file_name(test, 'test_definition.pl').
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+safe_call_without_sending_error_replies(Goal) :-
+   retractall(send_reply_on_error),
+   call_cleanup(Goal, assert(send_reply_on_error)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

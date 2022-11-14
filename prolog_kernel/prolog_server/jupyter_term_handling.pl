@@ -50,7 +50,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(library(codesio), [write_term_to_codes/3, format_to_codes/3, read_term_from_codes/3]).
 :- use_module(library(lists), [delete/3, reverse/2, nth1/3, append/2]).
 :- use_module(jupyter_logging, [log/1, log/2]).
-:- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0]).
+:- use_module(jupyter_query_handling, [call_with_output_to_file/3, call_query_with_output_to_file/7, redirect_output_to_file/0, safe_call_without_sending_error_replies/1]).
 :- use_module(jupyter_jsonrpc, [send_error_reply/3]).
 :- use_module(jupyter_request_handling, [loop/3]).
 :- use_module(jupyter_preferences, [set_preference/3, get_preference/2, get_preferences/1]).
@@ -522,6 +522,7 @@ is_query_alias(sicstus,jupyter:set_prolog_impl(sicstus)) :-  \+ current_predicat
 is_query_alias(show_graph(Nodes,Edges),jupyter:show_graph(Nodes,Edges)) :-  \+ current_predicate(user:show_graph/2).
 is_query_alias(print_queries,jupyter:print_queries) :-  \+ current_predicate(user:print_queries/0).
 is_query_alias(print_queries(L),jupyter:print_queries(L)) :-  \+ current_predicate(user:print_queries/1).
+is_query_alias(show_sld_tree(L),jupyter:print_sld_tree(L)) :-  \+ current_predicate(user:show_sld_tree/1).
 
 
 % handle_query_term_(+Query, +IsDirective, +CallRequestId, +Stack, +Bindings, +OriginalTermData, +LoopCont, -Cont)
@@ -1158,10 +1159,10 @@ assert_sld_data(call, MGoal, Current, Parent) :-
   ; Goal = MGoal
   ),
   % Assert the goal as character codes so that the variable names can be preserved and replaced consistently
-  write_term_to_codes(Goal, GoalCodes, []),
+  write_term_to_codes(Goal, GoalCodes, [quoted(true)]),
   assertz(sld_data(GoalCodes, Current, Parent)).
 assert_sld_data(_Port, _MGoal, _Current, _Parent) :-
-  collect_sld_data. % SLD data is to be colleted, but not for ports other than call
+  collect_sld_data. % SLD data is to be collected, but not for ports other than call
 
 
 % handle_print_sld_tree(+Goal, +Bindings)
@@ -1176,9 +1177,12 @@ handle_print_sld_tree(Goal, Bindings) :-
                                                    _OriginalTermData, Output, _ExceptionMessage, _IsFailure),
   retractall(collect_sld_data),
   % Compute the graph file content
-  sld_graph_file_content(GraphFileContentAtom),
+  catch(safe_call_without_sending_error_replies(sld_graph_file_content(GraphFileContentAtom)),InternalException,true),
   % Assert the result response
-  ( nonvar(Exception) -> % Exception
+  ( nonvar(InternalException) -> 
+    !,
+    assert_error_response(exception, message_data(error, InternalException), Output, [])
+  ; nonvar(Exception) -> % Exception
     !,
     assert_error_response(exception, message_data(error, Exception), Output, [print_sld_tree=GraphFileContentAtom])
   ; IsFailure == true -> % Failure
@@ -1325,14 +1329,21 @@ sld_tree_node_atoms([], _CurrentReplacementAtom, _VariableNameReplacements, []) 
 sld_tree_node_atoms([GoalCodes-Current-_Parent|SldData], CurrentReplacementAtom, VariableNameReplacements, [Node|Nodes]) :-
   % Read the goal term from the codes with the option variable_names/1 so that variable names can be replaced consistently
   append(GoalCodes, [46], GoalCodesWithFullStop),
-  read_term_from_codes(GoalCodesWithFullStop, GoalTerm, [variable_names(VariableNames)]),
+  safe_read_term_from_codes_with_vars(GoalCodesWithFullStop,GoalTerm,VariableNames),
   % Replace the variable names
-  replace_variable_names(VariableNames, CurrentReplacementAtom, VariableNameReplacements, NextReplacementAtom, NewVariableNameReplacements),
+  replace_variable_names(VariableNames, CurrentReplacementAtom, VariableNameReplacements, 
+                         NextReplacementAtom, NewVariableNameReplacements),
   % Create the atom
   format_to_codes('    \"~w\" [label=\"~w\"]~n', [Current, GoalTerm], NodeCodes),
   atom_codes(Node, NodeCodes),
   sld_tree_node_atoms(SldData, NextReplacementAtom, NewVariableNameReplacements, Nodes).
 
+% catch exceptions; ensure that we do not have to restart server if some internal mishap occurs
+% e.g., due to missing quoting, unicode issues or change in operator declarations
+safe_read_term_from_codes_with_vars(GoalCodesWithFullStop,GoalTerm,VariableNames) :-
+   catch(read_term_from_codes(GoalCodesWithFullStop, GoalTerm, [variable_names(VariableNames)]),
+         Exception,
+         (VariableNames=[], GoalTerm=Exception)).
 
 % replace_variable_names(+VariableNames, +CurrentReplacementAtom, +VariableNameReplacements, -NextReplacementAtom, -NewVariableNameReplacements)
 replace_variable_names([], CurrentReplacementAtom, VariableNameReplacements, CurrentReplacementAtom, VariableNameReplacements) :- !.
