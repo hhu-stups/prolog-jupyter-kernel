@@ -20,7 +20,9 @@
      retry/0,
      set_prolog_impl/1,         % set_prolog_impl(+PrologImplementationID)
      trace/1,                   % trace(+Goal)
-     update_completion_data/0
+     update_completion_data/0,
+     version/4,
+     version/0
     ]).
 
 
@@ -33,7 +35,12 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 :- use_module(jupyter_logging, [log/1, log/2]).
 :- use_module(jupyter_query_handling, [query_data/4, debug_mode_for_breakpoints/0]).
 :- use_module(jupyter_variable_bindings, [var_bindings/1]).
+:- use_module(jupyter_preferences, [version/4]).
 
+jupyter:version :-
+  version(Maj,Min,Patch,Suffix),
+  jupyter_tools:format_log('Version ~w.~w.~w-~w~n',[Maj,Min,Patch,Suffix]),
+  format('Version ~w.~w.~w-~w of Jupyter-Prolog-Kernel~n',[Maj,Min,Patch,Suffix]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

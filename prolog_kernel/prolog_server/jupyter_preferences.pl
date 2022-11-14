@@ -1,6 +1,9 @@
 :- module(jupyter_preferences,[set_preference/2, set_preference/3, 
                                get_preference/2, get_preferences/1,
-                               reset_preferences/0]).
+                               reset_preferences/0,
+                               version/4]).
+
+version(0,8,0,'nightly').
 
 :- dynamic preference_value/2.
 
