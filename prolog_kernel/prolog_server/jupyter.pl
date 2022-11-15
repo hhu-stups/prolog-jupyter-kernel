@@ -214,6 +214,12 @@ predicate_doc('jupyter:print_transition_graph/4', Doc) :-
     '\n    If LabelIndex=0, no label is shown.',
     '\n\n    Needs to be the only goal of a query.'
   ], Doc).
+predicate_doc('jupyter:show_term/1', Doc) :-
+  atom_concat([
+    'jupyter:show_term(+Term)',
+    '\n\n    Displays a Prolog term as a graph.',
+    '\n\n    Needs to be the only goal of a query.'
+  ], Doc).
 predicate_doc('jupyter:print_variable_bindings/0', Doc) :-
   atom_concat([
     'jupyter:print_variable_bindings',

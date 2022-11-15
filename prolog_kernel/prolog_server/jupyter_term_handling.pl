@@ -520,6 +520,9 @@ is_query_alias(halt,jupyter:halt).
 is_query_alias(swi,jupyter:set_prolog_impl(swi)) :- \+ current_predicate(user:swi/0).
 is_query_alias(sicstus,jupyter:set_prolog_impl(sicstus)) :-  \+ current_predicate(user:sicstus/0).
 is_query_alias(show_graph(Nodes,Edges),jupyter:show_graph(Nodes,Edges)) :-  \+ current_predicate(user:show_graph/2).
+is_query_alias(show_term(Term),
+          jupyter:show_graph(jupyter_term_handling:dot_subnode(_,_,Term),
+                             jupyter_term_handling:dot_subtree/3)) :-  \+ current_predicate(user:show_term/1).
 is_query_alias(print_queries,jupyter:print_queries) :-  \+ current_predicate(user:print_queries/0).
 is_query_alias(print_queries(L),jupyter:print_queries(L)) :-  \+ current_predicate(user:print_queries/1).
 is_query_alias(show_sld_tree(L),jupyter:print_sld_tree(L)) :-  \+ current_predicate(user:show_sld_tree/1).
@@ -1680,7 +1683,25 @@ gen_node_attr_codes([dot_attr(Attr,Val)]) --> !, gen_atom(Attr),"=\"",gen_atom(V
 gen_node_attr_codes([dot_attr(Attr,Val)|Tail]) --> 
    gen_atom(Attr),"=\"",gen_atom(Val),"\", ",
    gen_node_attr_codes(Tail).
-gen_atom(Atom,In,Out) :- format_to_codes('~w',Atom,Codes), append(Codes,Out,In).
+gen_atom(Atom,In,Out) :- format_to_codes('~w',[Atom],Codes), append(Codes,Out,In).
+
+% Convenience predicates for visualising Prolog terms (show_term/1) using show_graph:
+% jupyter:show_graph(dot_subnode(_,_,Term),dot_subtree/3)
+
+dot_subtree(Term,Nr,SubTerm) :- nonvar(Term),
+   Term =.. [_|ArgList], %obtain arguments of the term
+   nth1(Nr,ArgList,SubTerm). % get sub-argument and its position number
+
+% recursive and transitive closure of subtree
+dot_rec_subtree(Term,Sub) :- Term = Sub.
+dot_rec_subtree(Term,Sub) :- dot_subtree(Term,_,X), dot_rec_subtree(X,Sub).
+
+% the node predicate for all subterms of a formula
+dot_subnode(Sub,[shape/S, label/F],Formula) :- 
+   dot_rec_subtree(Formula,Sub), % any sub-formula Sub of Formula is a node in the graphical rendering
+   (var(Sub)  -> S=ellipse, F=Sub
+     ; functor(Sub,F,_), (atom(Sub) -> S=egg ; number(Sub) -> S=oval ; S=rect)
+    ).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
