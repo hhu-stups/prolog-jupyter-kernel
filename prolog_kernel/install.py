@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from jupyter_client.kernelspec import KernelSpecManager
 
