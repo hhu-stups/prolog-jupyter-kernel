@@ -11,6 +11,17 @@ def get_kernelspec_dir_path():
     """
     dirname = os.path.dirname(__file__)
     kernelspec_dir_path = os.path.join(dirname, 'kernelspec')
+    
+    current_python_executable = os.path.basename(os.path.splitext(sys.executable)[0])
+    if current_python_executable != 'python3':
+        try:
+            with open(kernelspec_dir_path + '/kernel.json', 'r') as kernel:
+                kernel_content = kernel.read()
+            with open(kernelspec_dir_path + '/kernel.json', 'w') as kernel:
+                kernel.write(kernel_content.replace('python3', current_python_executable))
+        except:
+            pass
+    
     return kernelspec_dir_path
 
 def _is_root():
