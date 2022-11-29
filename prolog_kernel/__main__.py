@@ -6,4 +6,4 @@ def entry_point():
     IPKernelApp.launch_instance(kernel_class=PrologKernel)
 
 
-IPKernelApp.launch_instance(kernel_class=PrologKernel)
+entry_point()
