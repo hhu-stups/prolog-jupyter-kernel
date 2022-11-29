@@ -80,7 +80,7 @@ class PrologKernel(Kernel):
     default_program_arguments = {
         "swi": ["swipl",
                 "-l", "prolog_server/jupyter_server.pl",
-                "-t", "jupyter_server_start"],
+                "-g", "jupyter_server_start", "-t", "halt"],
         "sicstus": ["sicstus",
                     "-l", "prolog_server/jupyter_server.pl",
                     "--goal", "jupyter_server_start;halt.",
