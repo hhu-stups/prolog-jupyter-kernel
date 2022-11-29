@@ -25,7 +25,7 @@ sicstus :- catch(current_prolog_flag(dialect, sicstus), _, fail).
 process_initialization_data(Args, Executable) :-
   current_module(jupyter_server,AbsFile),
   Args = ['-l', AbsFile,
-          '-t', 'jupyter_server_start(2)',
+          '-g', 'jupyter_server_start(2)', '-t', 'halt',
           '-q'],
   % The value of the Prolog flag executable is the pathname of the running executable
   current_prolog_flag(executable, Executable).
