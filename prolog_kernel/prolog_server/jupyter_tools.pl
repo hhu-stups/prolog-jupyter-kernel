@@ -30,13 +30,14 @@ format_log(FormatString,Args) :- %format(FormatString,Args),nl,
 :- if(swi).
 
 :- use_module(library(system),[ datime/1]).
-format_datime(S) :- 
+format_datime(Str) :- 
    get_time(TS),
-   format_time(S,'%H:%M %S sec @ %D%n',TS).
+   format_time(Str,'%H:%M %S sec @ %D%n',TS).
 :- else.
 :- use_module(library(system),[ datime/1]).
-format_datime(S) :- datime(datme(Y,M,D,H,M,S)),
-   format(S,'~w:~w ~w sec @ ~w/~w/~w~n',[H,M,S,D,M,Y]).
+format_datime(Str) :- datime(Dat),
+   Dat=datime(Y,M,D,H,Min,S),
+   format(Str,'~w:~w ~w sec @ ~w/~w/~w~n',[H,Min,S,D,M,Y]).
 :- endif.
 
 writeln_log_time(Term) :-
