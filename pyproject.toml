@@ -26,5 +26,8 @@ dependencies = [
   "beautifulsoup4",
 ]
 
+[project.scripts]
+prolog_kernel = "prolog_kernel.__main__:entry_point"
+
 [project.urls]
 "Homepage" = "https://github.com/anbre/prolog-jupyter-kernel"
