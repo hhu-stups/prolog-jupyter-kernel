@@ -54,9 +54,8 @@ The kernel is provided as a Python package on the [Python Package Index](https:/
 2. Install the kernel specification directory:
     - `python -m prolog_kernel.install`
     - There are the following options which can be seen when running `python -m prolog_kernel.install --help`
-      - `--user`: install to the per-user kernel registry (default if not root and no prefix is specified)
-      - `--sys-prefix`: install to Python's sys.prefix (e.g. virtualenv/conda env)
-      - `--prefix PREFIX`: install to the given prefix: PREFIX/share/jupyter/kernels/ (e.g. virtualenv/conda env)
+      - `--user`: install to the per-user kernel registry instead of sys.prefix (use if you get permission errors during installation)
+      - `--prefix PREFIX`: install to the given prefix: PREFIX/share/jupyter/kernels/
 
 
 ### Uninstall
