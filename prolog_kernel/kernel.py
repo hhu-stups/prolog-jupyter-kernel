@@ -47,10 +47,6 @@ import prolog_kernel.sicstus_kernel_implementation
 from prolog_kernel.prolog_kernel_base_implementation import PrologKernelBaseImplementation
 
 
-# Set the logging format
-logging.basicConfig(format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
-
-
 class PrologKernel(Kernel):
     kernel_name = 'prolog_kernel'
     implementation = kernel_name
@@ -138,6 +134,9 @@ class PrologKernel(Kernel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        # Set the logging format
+        logging.basicConfig(format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
 
         self.logger = logging.getLogger()
         # For development, the logging level can be set to level DEBUG, so that all debug messages (including the ones about loading a configuration file) are output

@@ -1,11 +1,14 @@
 import argparse
 import json
+import logging
 import os
 import shutil
 import sys
 import tempfile
 
 from jupyter_client.kernelspec import KernelSpecManager
+
+logger = logging.getLogger(__name__)
 
 KERNELSPEC_FILES = [
     'kernel.js',
@@ -42,6 +45,11 @@ def _is_root():
         return False
 
 def main(argv=None):
+    logging.basicConfig(
+        format='%(levelname)s: %(message)s',
+        level=logging.INFO,
+    )
+
     ap = argparse.ArgumentParser()
     ap.add_argument(
         '--user',
@@ -61,7 +69,6 @@ def main(argv=None):
     if not args.prefix and not _is_root():
         args.user = True
 
-    print('Installing Prolog kernel spec')
     with tempfile.TemporaryDirectory() as temp_dir:
         create_kernelspec(temp_dir)
         KernelSpecManager().install_kernel_spec(temp_dir, 'prolog_kernel', user=args.user, prefix=args.prefix)
