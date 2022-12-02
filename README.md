@@ -51,7 +51,7 @@ The installation was tested with Ubuntu 20.04 and Windows 10.
 
 The kernel is provided as a Python package on the [Python Package Index](https://pypi.org/) and can be installed with `pip`:
 1. Download the kernel:<br/> `python -m pip install prolog_kernel`
-2. Install the kernel specification directory:
+2. Install the kernelspec:
     - `python -m prolog_kernel.install`
     - There are the following options which can be seen when running `python -m prolog_kernel.install --help`
       - `--user`: install to the per-user kernel registry instead of sys.prefix (use if you get permission errors during installation)
@@ -118,7 +118,7 @@ If no such path is defined, the path itself or the defined class is invalid, a *
 1. `git clone https://github.com/anbre/prolog-jupyter-kernel.git`
 2. Change to the root directory of the repository
 3. `pip install .`
-4. Install the kernel specification directory:
+4. Install the kernelspec:
     - `python -m prolog_kernel.install`
     - For available installation options, see [Install](#install)
 
