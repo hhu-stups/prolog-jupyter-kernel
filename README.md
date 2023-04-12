@@ -24,6 +24,8 @@ The notebook in [notebooks/slides](./notebooks/slides) was created for a **slide
 
 The directory [notebooks/nbgrader_example](./notebooks/nbgrader_example) provides an example of a **course directory** for the [nbgrader extension](https://nbgrader.readthedocs.io/en/stable/).
 
+The kernel has been used to prepare some [notebooks for teaching logic programming](https://gitlab.cs.uni-duesseldorf.de/general/stups/prob-teaching-notebooks/-/tree/master/logic_programming).
+
 Additionally, the file [jupyter_server_tests.pl](./prolog_server/jupyter_server_tests.pl) defines some **PL-Unit tests**. They provide further examples of what kind of code the Prolog server (and therefore the kernel) can handle and what the expected behavior is.
 
 
