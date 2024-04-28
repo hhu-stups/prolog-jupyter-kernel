@@ -506,13 +506,10 @@ handle_query_term(Term, IsDirective, CallRequestId, Stack, Bindings, LoopCont, C
 
 
 % replace_previous_variable_bindings(+Term, +Bindings, -UpdatedTerm, -UpdatedBindings, -Exception)
-:- if(swi).
-replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings, Exception) :-
-  catch(toplevel_variables:expand_query(Term, UpdatedTerm, Bindings, UpdatedBindings), Exception, true).
-:- else.
+% Apr 2024 changed usage of the jupyter_variable_bindings functionality for both SWI-Prolog an SICStus Prolog.
 replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings, Exception) :-
   catch(jupyter_variable_bindings:term_with_stored_var_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings), Exception, true).
-:- endif.
+
 
 is_query_alias(retry,jupyter:retry).
 is_query_alias(cut,jupyter:cut).
@@ -699,13 +696,9 @@ assert_query_success_response(_IsDirective, ResultBindings, Output) :-
 
 
 % update_variable_bindings(+BindingsWithoutSingletons)
-:- if(swi).
-update_variable_bindings(BindingsWithoutSingletons) :-
-  toplevel_variables:expand_answer(BindingsWithoutSingletons, _NewBindings).
-:- else.
+% Apr 2024 changed usage of the jupyter_variable_bindings functionality for both SWI-Prolog an SICStus Prolog.
 update_variable_bindings(BindingsWithoutSingletons) :-
   jupyter_variable_bindings:store_var_bindings(BindingsWithoutSingletons).
-:- endif.
 
 
 % retry_message_and_output(+GoalAtom, +Output, -RetryMessageAndOutput)
