@@ -5,7 +5,7 @@ requires = [
 ]
 
 [project]
-name = "prolog_kernel"
+name = "wldwrk-prolog_kernel"
 version = "0.0.10"
 authors = [ { name="Anne Brecklinghaus" }, {name="Michael Leuschel"}, {name="dgelessus"} ]
 description = "Extensible Jupyter kernel for (SWI- and SICStus) Prolog"
