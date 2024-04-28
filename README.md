@@ -48,6 +48,14 @@ Additionally, the file [jupyter_server_tests.pl](./prolog_server/jupyter_server_
 
 The installation was tested with Ubuntu 20.04 and Windows 10.
 
+April 2024
+The SWI Prolog update from 9.2.2 to 9.2.3 broke Herculog. After some amendments Herculog was tested with
+    - jupyter_core: 5.7.2
+    - jupyterlab: 4.1.5
+    - notebook: 7.1.2
+    Ubuntu 22.04 SWI Prolog snap 9.2.3, 9.2.4 and 9.3.4
+    Python 3.10.12
+
 
 ### Install
 
