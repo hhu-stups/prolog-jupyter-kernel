@@ -9,6 +9,8 @@ Also see the [JupyterLab Prolog CodeMirror Extension](https://github.com/anbre/j
 
 **Note:** The project is still under development. Even though major changes are unlikely, the possibility cannot be excluded. Furthermore, no liability is accepted for correctness and completeness.
 
+In April 2024 the SWI-Prolog update from 9.2.2 to 9.2.3 broke Herculog. Some amendments were made to Herculog and were tested succesfully.
+
 
 ## Examples
 
@@ -34,27 +36,19 @@ Additionally, the file [jupyter_server_tests.pl](./prolog_server/jupyter_server_
 ### Requirements
 
 - At least **Python** 3.5
-  - Tested with Python 3.8.10
+  - Tested with Python 3.8.10, 3.10.12, and 3.12.2
 - **Jupyter** installation with JupyterLab and/or Juypter Notebook
   - Tested with
-    - jupyter_core: 4.10.0
-    - jupyterlab: 3.2.9
-    - notebook: 6.4.8
+    - jupyter_core: 5.7.2 (Ubunt 22.04, Windows 10)
+    - jupyterlab: 4.1.5 (Ubunt 22.04, Windows 10)
+    - notebook: 7.1.2 (Ubunt 22.04, Windows 10)
 - A **Prolog** installation for the configured implementation
   - In order to use the default configuration, SWI-Prolog is needed and needs to be on the PATH
-  - Tested with version 8.4.3 of SWI-Prolog and SICStus 4.5.1
+  - Tested with version 9.2.3, 9.2.4 and 9.3.4 (Ubuntu snap) and 9.2.4 (Windows 10) SWI-Prolog and SICStus 4.5.1 (not re-tested in 2024)
+  - Tested with Python 3.10.12 (Ubuntu) and 3.12.2 (Windows 10)
 - For Windows, installing **graphviz** with pip does not suffice
   - Instead, it can be installed from [here](https://graphviz.org/download/) and added to the PATH (a reboot is required afterwards)
 
-The installation was tested with Ubuntu 20.04 and Windows 10.
-
-April 2024
-The SWI Prolog update from 9.2.2 to 9.2.3 broke Herculog. After some amendments Herculog was tested with
-    - jupyter_core: 5.7.2
-    - jupyterlab: 4.1.5
-    - notebook: 7.1.2
-    Ubuntu 22.04 SWI Prolog snap 9.2.3, 9.2.4 and 9.3.4
-    Python 3.10.12
 
 
 ### Install
