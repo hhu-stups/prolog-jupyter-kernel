@@ -506,7 +506,7 @@ handle_query_term(Term, IsDirective, CallRequestId, Stack, Bindings, LoopCont, C
 
 
 % replace_previous_variable_bindings(+Term, +Bindings, -UpdatedTerm, -UpdatedBindings, -Exception)
-% Apr 2024 changed usage of the jupyter_variable_bindings functionality for both SWI-Prolog an SICStus Prolog.
+% April 2024 change - SWI-Prolog as well as SICStus Prolog use the jupyter_variable_bindings functionality.
 replace_previous_variable_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings, Exception) :-
   catch(jupyter_variable_bindings:term_with_stored_var_bindings(Term, Bindings, UpdatedTerm, UpdatedBindings), Exception, true).
 
@@ -696,7 +696,7 @@ assert_query_success_response(_IsDirective, ResultBindings, Output) :-
 
 
 % update_variable_bindings(+BindingsWithoutSingletons)
-% Apr 2024 changed usage of the jupyter_variable_bindings functionality for both SWI-Prolog an SICStus Prolog.
+% April 2024 change - SWI-Prolog as well as SICStus Prolog use the jupyter_variable_bindings functionality.
 update_variable_bindings(BindingsWithoutSingletons) :-
   jupyter_variable_bindings:store_var_bindings(BindingsWithoutSingletons).
 

@@ -1,11 +1,11 @@
 
 % This module provides predicates to reuse previous values of variables in a query.
 % It is based on the module toplevel_variables from SWI-Prolog (version 8.4.2).
-% The SWI-Prolog 9.2.3 update broke Herculog. The built-in SWI-Prolog functionality
-% was changed. SWI-Prolog writes Februari 2024 "If you want to hack around, simply call toplevel_variables:toplevel_var/2. Don’t blame anyone if it stops working without notice though as it is a private API."
-% For a more future proof solution the built-in SWI-Prolog functionality will no longer be used.
-% Using the functionality from this module for SWI-Prolog repaired Herculog.
-% This module will be used for both SWI-Prolog an SICStus Prolog.
+% The SWI-Prolog 9.2.3 update broke Herculog. The built-in SWI-Prolog functionality was changed by SWI.
+% SWI-Prolog writes Februari 2024 "If you want to hack around, simply call toplevel_variables:toplevel_var/2. Don’t blame anyone if it stops working without notice though as it is a private API."
+% For a more future proof solution the SWI private API built-in SWI-Prolog functionality will no longer be used in Herculog.
+% Using the functionality from this jupyter_variable_bindings module for SWI-Prolog repaired Herculog.
+% This jupyter_variable_bindings module will be used for both SWI-Prolog and SICStus Prolog.
 
 :- module(jupyter_variable_bindings,
     [store_var_bindings/1,            % store_var_bindings(+Bindings)

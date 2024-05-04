@@ -39,9 +39,9 @@ Additionally, the file [jupyter_server_tests.pl](./prolog_server/jupyter_server_
   - Tested with Python 3.8.10, 3.10.12, and 3.12.2
 - **Jupyter** installation with JupyterLab and/or Juypter Notebook
   - Tested with
-    - jupyter_core: 5.7.2 (Ubunt 22.04, Windows 10)
-    - jupyterlab: 4.1.5 (Ubunt 22.04, Windows 10)
-    - notebook: 7.1.2 (Ubunt 22.04, Windows 10)
+    - jupyter_core: 5.7.2 (Ubuntu 22.04, Windows 10)
+    - jupyterlab: 4.1.5 (Ubuntu 22.04, Windows 10)
+    - notebook: 7.1.2 (Ubuntu 22.04, Windows 10)
 - A **Prolog** installation for the configured implementation
   - In order to use the default configuration, SWI-Prolog is needed and needs to be on the PATH
   - Tested with version 9.2.3, 9.2.4 and 9.3.4 (Ubuntu snap) and 9.2.4 (Windows 10) SWI-Prolog and SICStus 4.5.1 (not re-tested in 2024)
