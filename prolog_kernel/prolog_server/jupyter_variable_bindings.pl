@@ -17,12 +17,6 @@
 :- use_module(jupyter_logging, [log/1, log/2]).
 
 
-:- multifile user:generate_message_hook/3.
-
-user:generate_message_hook(jupyter(no_var_binding(VarName))) --> !,
-  ['$~w was not bound by a previous query~n'-[VarName]], [nl].
-
-
 % Define $ to be an operator.
 % This is needed so that terms containing terms of the form $Var can be read without any exceptions.
 :- op(1, fx, '$').

@@ -120,6 +120,8 @@ juypter_message(goal_failed(Goal)) --> !,
 juypter_message(goal_failed(Goal)) --> !,
   ['~w - goal failed'-[Goal]], [nl].
 :- endif.
+juypter_message(no_var_binding(VarName)) --> !,
+  ['$~w was not bound by a previous query~n'-[VarName]], [nl].
 juypter_message(invalid_table_values_lists_length) --> !,
   ['The values lists need to be of the same length'-[]], [nl].
 juypter_message(invalid_table_variable_names) --> !,
