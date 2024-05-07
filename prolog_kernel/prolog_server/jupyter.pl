@@ -351,11 +351,6 @@ module_name_expanded(Term, user:Term).
 % print_variable_bindings
 %
 % Print the previous variable bindings which can be reused with a term of the form $Var.
-:- if(swi).
-print_variable_bindings :-
-  print_toplevel_variables. % backtracks until it fails
-print_variable_bindings.
-:- else.
 print_variable_bindings :-
   jupyter_variable_bindings:var_bindings(Bindings),
   ( Bindings == [] ->
@@ -367,7 +362,6 @@ print_variable_bindings([]) :- !.
 print_variable_bindings([Name=Value|Bindings]) :-
   format('$~w =~t~12|~p~n', [Name, Value]),
   print_variable_bindings(Bindings).
-:- endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
